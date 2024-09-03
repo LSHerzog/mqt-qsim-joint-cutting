@@ -159,9 +159,11 @@ def visualize_circ(path:str):
     print("stored: "+ path + "diagram.pdf")     
 
 def print_diffs(reps, path_nocut, path_block, path_noblock, suffix=""):
-    """prints the results of the runs of a single circuit.
+    """
+    prints the results of the runs of a single circuit.
     note that the paths only include everything up to `_rep{rep}.tlog` because we need to loop over this in this functio here
-    in case your files have a suffix, include the suffix"""
+    in case your files have a suffix, include the suffix
+    """
     full_nocut = []
     full_block = []
     full_noblock = []

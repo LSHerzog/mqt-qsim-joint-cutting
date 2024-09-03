@@ -1,3 +1,9 @@
+CXX = g++
+NVCC = nvcc
+HIPCC = hipcc
+CXXFLAGS = -O3 -fopenmp -march=native -DHAVE_CBLAS=1
+LDFLAGS = -lblas -llapack
+
 CXX_TARGETS = $(shell find . -maxdepth 1 -name '*.cc')
 CXX_TARGETS := $(CXX_TARGETS:%.cc=%.x)
 
@@ -23,7 +29,7 @@ qsim-custatevec: $(CUSTATEVEC_TARGETS)
 qsim-hip: $(HIP_TARGETS)
 
 %.x: %.cc
-	$(CXX) -o ./$@ $< $(CXXFLAGS) $(ARCHFLAGS)
+	$(CXX) -o ./$@ $< $(CXXFLAGS) $(LDFLAGS) $(ARCHFLAGS)
 
 %cuda.x: %cuda.cu
 	$(NVCC) -o ./$@ $< $(NVCCFLAGS)

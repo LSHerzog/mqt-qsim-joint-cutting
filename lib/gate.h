@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <utility>
 #include <vector>
+#include <iostream>//!remove
 
 #include "matrix.h"
 
@@ -137,6 +138,7 @@ struct Gate {
   bool swapped;        // If true, the gate qubits are swapped to make qubits
                        // ordered in ascending order. This does not apply to
                        // control qubits of explicitly-controlled gates.
+   std::vector<unsigned int> flattened_qubits; //only necessary for block gates, where a block can contain inactive qubits. the active qubit positions must be stored in Gate in order to access it again for the SVD
 
   template <typename Qubits = std::vector<unsigned>>
   Gate&& ControlledBy(Qubits&& controlled_by) {
@@ -157,6 +159,35 @@ template <typename Gate, typename GateDef,
           typename Qubits = std::vector<unsigned>,
           typename M = Matrix<typename Gate::fp_type>>
 inline Gate CreateGate(unsigned time, Qubits&& qubits, M&& matrix = {},
+                       std::vector<typename Gate::fp_type>&& params = {}, std::vector<unsigned int>&& flattened_qubits = {}) { //flattened_qubits only relevant for blocks
+  Gate gate = {GateDef::kind, time, std::forward<Qubits>(qubits), {}, 0,
+               std::move(params), std::forward<M>(matrix), false, false, std::forward<std::vector<unsigned int>>(flattened_qubits)};
+
+  if (GateDef::kind != gate::kMeasurement) {
+    switch (gate.qubits.size()) {
+    case 1:
+      break;
+    case 2:
+      if (gate.qubits[0] > gate.qubits[1] && GateDef::kind !=24) { //flip should only be done for non-block gates, as the flipping in blocks is only done previously
+        gate.swapped = true;
+        std::swap(gate.qubits[0], gate.qubits[1]);
+        if (!GateDef::symmetric) {
+          MatrixShuffle({1, 0}, 2, gate.matrix);
+        }
+      }
+      break;
+    default:
+      detail::SortQubits<Gate, GateDef>(gate);
+    }
+  }
+
+  return gate;
+}
+
+template <typename Gate, typename GateDef,
+          typename Qubits = std::vector<unsigned>,
+          typename M = Matrix<typename Gate::fp_type>>
+inline Gate CreateGateBlockRev(unsigned time, Qubits&& qubits, M&& matrix = {},
                        std::vector<typename Gate::fp_type>&& params = {}) {
   Gate gate = {GateDef::kind, time, std::forward<Qubits>(qubits), {}, 0,
                std::move(params), std::forward<M>(matrix), false, false};
@@ -166,13 +197,6 @@ inline Gate CreateGate(unsigned time, Qubits&& qubits, M&& matrix = {},
     case 1:
       break;
     case 2:
-      if (gate.qubits[0] > gate.qubits[1]) {
-        gate.swapped = true;
-        std::swap(gate.qubits[0], gate.qubits[1]);
-        if (!GateDef::symmetric) {
-          MatrixShuffle({1, 0}, 2, gate.matrix);
-        }
-      }
       break;
     default:
       detail::SortQubits<Gate, GateDef>(gate);
@@ -203,13 +227,6 @@ struct Measurement {
 };
 
 }  // namespace gate
-
-template <typename fp_type>
-using schmidt_decomp_type = std::vector<std::vector<std::vector<fp_type>>>;
-
-template <typename fp_type, typename GateKind>
-schmidt_decomp_type<fp_type> GetSchmidtDecomp(
-    GateKind kind, const std::vector<fp_type>& params);
 
 }  // namespace qsim
 

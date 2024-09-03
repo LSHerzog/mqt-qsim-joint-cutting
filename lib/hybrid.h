@@ -154,6 +154,9 @@ struct HybridSimulator final {
       hd.qubit_map.push_back(parts[i] == 0 ? count0++ : count1++);
     }
 
+    std::vector<unsigned int> n_top_lst; //only for blocks, list because different value for each block possible
+    std::vector<unsigned int> n_bottom_lst;
+
     // Split the lattice.
     for (const auto& gate : gates) {
       if (gate.kind == gate::kMeasurement) {
@@ -165,6 +168,34 @@ struct HybridSimulator final {
         IO::errorf("controlled gates are not suported by qsimh.\n");
         return false;
       }
+
+      std::vector<int> qubitGroups;
+      if (gate.qubits.size()>2) {
+        std::vector<int> group0_idx, group1_idx;
+        //find qubit indices per group
+        for (unsigned int i = 0; i < parts.size(); ++i) {
+          if (parts[i] == 0) {
+            group0_idx.push_back(i);
+          }
+          else if (parts[i] == 1) {
+            group1_idx.push_back(i);
+          }
+          else {
+            IO::errorf("More than two groups for the cut are not yet implemented");
+          }  
+        }
+        //determine group assignment of the qubits of the 4-block //!redundant code
+        for (int q : gate.qubits) {
+            if (find(group0_idx.begin(), group0_idx.end(), q) != group0_idx.end()) {
+                qubitGroups.push_back(0);
+            } else if (find(group1_idx.begin(), group1_idx.end(), q) != group1_idx.end()) {
+                qubitGroups.push_back(1);
+            } else {
+                IO::errorf("Qubits does not correspond to any group defined by parts.");
+            }
+        }
+      }
+      
 
       switch (gate.qubits.size()) {
       case 1:  // Single qubit gates.
@@ -183,6 +214,10 @@ struct HybridSimulator final {
         break;
       case 2:  // Two qubit gates.
         {
+          if (gate.kind == 24) { //only add values if block gate
+            n_top_lst.emplace_back(1); //no other choice for 2 qubit blocks
+            n_bottom_lst.emplace_back(1);
+          };
           switch ((parts[gate.qubits[1]] << 1) | parts[gate.qubits[0]]) {
           case 0:  // Both qubits in part 0.
             hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time,
@@ -193,10 +228,10 @@ struct HybridSimulator final {
           case 1:  // Gate on the cut, qubit 0 in part 1, qubit 1 in part 0.
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time,
               {hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {},
-              true, gate.swapped, &gate, hd.num_gatexs});
+              true, gate.swapped, &gate, hd.num_gatexs}); //! the gate is reference two times, because later they go through all hd.gates0 and hd.gates1 and catch the schmidt
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time,
               {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {},
-              true, gate.swapped, &gate, hd.num_gatexs});
+              true, gate.swapped, &gate, hd.num_gatexs});;
 
             ++hd.num_gatexs;
             break;
@@ -216,11 +251,952 @@ struct HybridSimulator final {
               {}, 0, gate.params, gate.matrix, false, gate.swapped,
               nullptr, 0});
             break;
+          default:
+            IO::errorf("For the Two-Qubit Case, none of the partitions applies --> check your implementation");
           }
         }
         break;
+      case 3: //3 qubit gates
+        {
+          for (size_t i = 0; i < gate.qubits.size()-1; ++i) {
+            if (gate.qubits[i]>gate.qubits[i+1]){
+              IO::errorf("A 3-qubit block must be already in proper ordering when passed to SplitLattice");
+            }
+          }
+          
+          if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0){
+            //all qubits in group 0
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1) {
+            //all qubits in group 1
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 1 && qubitGroups[2] == 1) {
+            //qubits[0] in group 0 and qubits[1,2] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 0 && qubitGroups[2] == 0) {
+            //qubits[0] in group 1 and qubits[1,2] in group 0
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 1) {
+            //qubits[0,1] in group 0 and qubits[2] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(1);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 0) {
+            //qubits[0,1] in group 1 and qubits[2] in group 0
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(1);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 1 && qubitGroups[2] == 0) {
+            //qubits[0,2] in group 0 and qubits[1] in group 1
+            IO::errorf("We assume that a block is cut only once, not twice");
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 0 && qubitGroups[2] == 1) {
+            //qubits[0,2] in group 1 and qubits[1] in group 0
+            IO::errorf("We assume that a block is cut only once, not twice");
+          }
+        }
+        break;
+      case 4: //4 qubit gates
+        {
+          for (size_t i = 0; i < gate.qubits.size()-1; ++i) {
+            if (gate.qubits[i]>gate.qubits[i+1]){
+              IO::errorf("A 4-qubit block must be already in proper ordering when passed to SplitLattice");
+            }
+          }
+
+          if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0){
+            //all qubits in group 0
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1) {
+            //all qubits in group 1
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 1) {
+            //qubits[0,1,2] in group 0 and qubits[3] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(1);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 1 && qubitGroups[3] == 1) {
+            //qubits[0,1] in group 0 and qubits[2,3] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1) {
+            //qubits[0] in group 0 and qubits[1,2,3] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0) {
+            //qubits[0] in group 1 and qubits[1,2,3] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 0 && qubitGroups[3] == 0) {
+            //qubits[0,1] in group 1 and qubits[2,3] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 0) {
+            //qubits[0,1,2] in group 1 and qubits[3] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(1);
+            };
+          } else {
+            IO::errorf("We assume that a block is cut only once, not twice or three times.");
+          }
+        }
+        break;
+      case 5: //5 qubit gates
+        {
+          for (size_t i = 0; i < gate.qubits.size()-1; ++i) {
+            if (gate.qubits[i]>gate.qubits[i+1]){
+              IO::errorf("A 5-qubit block must be already in proper ordering when passed to SplitLattice");
+            }
+          }
+
+          if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0){
+            //all qubits in group 0
+            //std::cout << "all qubits in group 0\n";
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1) {
+            //all qubits in group 1
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 1) {
+            //qubits[0,1,2,3] in group 0 and qubits[4] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(4);
+              n_bottom_lst.emplace_back(1);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 1 && qubitGroups[4] == 1) {
+            //qubits[0,1,2] in group 0 and qubits[3,4] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1) {
+            //qubits[0,1] in group 0 and qubits[2,3,4] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1) {
+            //qubits[0] in group 0 and qubits[1,2,3,4] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(4);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 0) {
+            //qubits[0,1,2,3] in group 1 and qubits[4] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(4);
+              n_bottom_lst.emplace_back(1);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 0 && qubitGroups[4] == 0) {
+            //qubits[0,1,2] in group 1 and qubits[3,4] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0) {
+            //qubits[0,1] in group 1 and qubits[2,3,4] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0) {
+            //qubits[0] in group 1 and qubits[1,2,3,4] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(4);
+            };
+          } else {
+            IO::errorf("We assume that a block is cut only once, not twice, three or four times.");
+          }
+        }
+        break;
+      case 6: //6 qubit gate
+        {
+          for (size_t i = 0; i < gate.qubits.size()-1; ++i) {
+            if (gate.qubits[i]>gate.qubits[i+1]){
+              IO::errorf("A 6-qubit block must be already in proper ordering when passed to SplitLattice");
+            }
+          }
+
+          if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0){
+            //all qubits in group 0
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1) {
+            //all qubits in group 1
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 1) {
+            //qubits[0,1,2,3,4] in group 0 and qubits[5] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(5);
+              n_bottom_lst.emplace_back(1);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 1 && qubitGroups[5] == 1) {
+            //qubits[0,1,2,3] in group 0 and qubits[4,5] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(4);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1) {
+            //qubits[0,1,2] in group 0 and qubits[3,4,5] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1) {
+            //qubits[0,1] in group 0 and qubits[2,3,4,5] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(4);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1) {
+            //qubits[0] in group 0 and qubits[1,2,3,4,5] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(5);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0) {
+            //qubits[0] in group 1 and qubits[1,2,3,4,5] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(5);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0) {
+            //qubits[0,1] in group 1 and qubits[2,3,4,5] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(4);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0) {
+            //qubits[0,1,2] in group 1 and qubits[3,4,5] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 0 && qubitGroups[5] == 0) {
+            //qubits[0,1,2,3] in group 1 and qubits[4,5] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(4);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 0) {
+            //qubits[0,1,2,3,4] in group 1 and qubits[5] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(5);
+              n_bottom_lst.emplace_back(1);
+            };
+          }
+        }
+      break;
+      case 7: // 7qubit gates
+        {
+          for (size_t i = 0; i < gate.qubits.size()-1; ++i) {
+            if (gate.qubits[i]>gate.qubits[i+1]){
+              IO::errorf("A 7-qubit block must be already in proper ordering when passed to SplitLattice");
+            }
+          }
+
+          if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0  && qubitGroups[6] == 0){
+            //all qubits in group 0
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1) {
+            //all qubits in group 1
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 1) {
+            //qubits[0,1,2,3,4,5] in group 0 and qubits[6] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(6);
+              n_bottom_lst.emplace_back(1);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 1 && qubitGroups[6] == 1) {
+            //qubits[0,1,2,3,4] in group 0 and qubits[5, 6] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(5);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1) {
+            //qubits[0,1,2,3] in group 0 and qubits[4,5, 6] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(4);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1) {
+            //qubits[0,1,2] in group 0 and qubits[3,4,5, 6] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(4);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1) {
+            //qubits[0,1] in group 0 and qubits[2,3,4,5, 6] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(5);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1) {
+            //qubits[0] in group 0 and qubits[1,2,3,4,5, 6] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(6);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0) {
+            //qubits[0] in group 1 and qubits[1,2,3,4,5,6] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(6);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0) {
+            //qubits[0,1] in group 1 and qubits[2,3,4,5,6] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(5);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0) {
+            //qubits[0,1,2] in group 1 and qubits[3,4,5,6] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(4);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0) {
+            //qubits[0,1,2,3] in group 1 and qubits[4,5,6] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(4);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 0 && qubitGroups[6] == 0) {
+            //qubits[0,1,2,3,4] in group 1 and qubits[5,6] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(5);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 0) {
+            //qubits[0,1,2,3,4,5] in group 1 and qubits[6] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(6);
+              n_bottom_lst.emplace_back(1);
+            };
+          }
+        }
+      break;
+      case 8: // 8 qubit block
+        {
+          for (size_t i = 0; i < gate.qubits.size()-1; ++i) {
+            if (gate.qubits[i]>gate.qubits[i+1]){
+              IO::errorf("A 8-qubit block must be already in proper ordering when passed to SplitLattice");
+            }
+          }
+
+          if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0  && qubitGroups[6] == 0 && qubitGroups[7] == 0){
+            //all qubits in group 0
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1, qubitGroups[6] == 1 && qubitGroups[7] == 1) {
+            //all qubits in group 1
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 1) {
+            //qubits[0,1,2,3,4,5,6] in group 0 and qubits[7] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(7);
+              n_bottom_lst.emplace_back(1);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 1 && qubitGroups[7] == 1) {
+            //qubits[0,1,2,3,4,5] in group 0 and qubits[6,7] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(6);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1) {
+            //qubits[0,1,2,3,4] in group 0 and qubits[5,6,7] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(5);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1) {
+            //qubits[0,1,2,3] in group 0 and qubits[4,5,6,7] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(4);
+              n_bottom_lst.emplace_back(4);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1) {
+            //qubits[0,1,2] in group 0 and qubits[3,4,5,6,7] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(5);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1) {
+            //qubits[0,1] in group 0 and qubits[2,3,4,5,6,7] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(6);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1) {
+            //qubits[0] in group 0 and qubits[1,2,3,4,5,6,7] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(7);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0) {
+            //qubits[0] in group 1 and qubits[1,2,3,4,5,6,7] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(7);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0) {
+            //qubits[0,1] in group 1 and qubits[2,3,4,5,6,7] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(6);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0) {
+            //qubits[0,1,2] in group 1 and qubits[3,4,5,6,7] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(5);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0) {
+            //qubits[0,1,2,3] in group 1 and qubits[4,5,6,7] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(4);
+              n_bottom_lst.emplace_back(4);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0) {
+            //qubits[0,1,2,3,4] in group 1 and qubits[5,6,7] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(5);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 0 && qubitGroups[7] == 0) {
+            //qubits[0,1,2,3,4,5] in group 1 and qubits[6,7] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(6);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 0) {
+            //qubits[0,1,2,3,4,5,6] in group 1 and qubits[7] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(7);
+              n_bottom_lst.emplace_back(1);
+            };
+          } 
+        }
+      break;
+      case 9 : //9 qubit blocks
+        {
+          for (size_t i = 0; i < gate.qubits.size()-1; ++i) {
+            if (gate.qubits[i]>gate.qubits[i+1]){
+              IO::errorf("A 9-qubit block must be already in proper ordering when passed to SplitLattice");
+            }
+          }
+
+          if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0  && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0){
+            //all qubits in group 0
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]], hd.qubit_map[gate.qubits[8]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1, qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1) {
+            //all qubits in group 1
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]], hd.qubit_map[gate.qubits[8]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 1) {
+            //qubits[0,1,2,3,4,5,6,7] in group 0 and qubits[8] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(8);
+              n_bottom_lst.emplace_back(1);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 1 && qubitGroups[8] == 1) {
+            //qubits[0,1,2,3,4,5,6] in group 0 and qubits[7,8] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(7);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1) {
+            //qubits[0,1,2,3,4,5] in group 0 and qubits[6,7,8] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(6);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1) {
+            //qubits[0,1,2,3,4] in group 0 and qubits[5,6,7,8] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(5);
+              n_bottom_lst.emplace_back(4);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1) {
+            //qubits[0,1,2,3] in group 0 and qubits[4,5,6,7,8] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(4);
+              n_bottom_lst.emplace_back(5);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1) {
+            //qubits[0,1,2] in group 0 and qubits[3,4,5,6,7,8] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(6);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1) {
+            //qubits[0,1] in group 0 and qubits[2,3,4,5,6,7,8] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(7);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1) {
+            //qubits[0] in group 0 and qubits[1,2,3,4,5,6,7,8] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(8);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0) {
+            //qubits[0] in group 1 and qubits[1,2,3,4,5,6,7,8] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(8);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0) {
+            //qubits[0,1] in group 1 and qubits[2,3,4,5,6,7,8] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(7);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0) {
+            //qubits[0,1,2] in group 1 and qubits[3,4,5,6,7,8] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(6);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0) {
+            //qubits[0,1,2,3] in group 1 and qubits[4,5,6,7,8] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(4);
+              n_bottom_lst.emplace_back(5);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0) {
+            //qubits[0,1,2,3,4] in group 1 and qubits[5,6,7,8] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(5);
+              n_bottom_lst.emplace_back(4);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0) {
+            //qubits[0,1,2,3,4,5] in group 1 and qubits[6,7,8] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(6);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 0 && qubitGroups[8] == 0) {
+            //qubits[0,1,2,3,4,5,6] in group 1 and qubits[7,8] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(7);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 0) {
+            //qubits[0,1,2,3,4,5,6,7] in group 1 and qubits[8] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(8);
+              n_bottom_lst.emplace_back(1);
+            };
+          }
+        }
+      break;
+      case 10 : //10 qubit block
+        {
+          for (size_t i = 0; i < gate.qubits.size()-1; ++i) {
+            if (gate.qubits[i]>gate.qubits[i+1]){
+              IO::errorf("A 10-qubit block must be already in proper ordering when passed to SplitLattice");
+            }
+          }
+
+          if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0  && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0 && qubitGroups[9] == 0){
+            //all qubits in group 0
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]], hd.qubit_map[gate.qubits[8]], hd.qubit_map[gate.qubits[9]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1, qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1 && qubitGroups[9] == 1) {
+            //all qubits in group 1
+            hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]], hd.qubit_map[gate.qubits[8]], hd.qubit_map[gate.qubits[9]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0  && qubitGroups[9] == 1) {
+            //qubits[0,1,2,3,4,5,6,7,8] in group 0 and qubits[9] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]], hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(9);
+              n_bottom_lst.emplace_back(1);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 1  && qubitGroups[9] == 1) {
+            //qubits[0,1,2,3,4,5,6,7] in group 0 and qubits[8,9] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(8);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 1 && qubitGroups[8] == 1  && qubitGroups[9] == 1) {
+            //qubits[0,1,2,3,4,5,6] in group 0 and qubits[7,8,9] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(7);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1  && qubitGroups[9] == 1) {
+            //qubits[0,1,2,3,4,5] in group 0 and qubits[6,7,8,9] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(6);
+              n_bottom_lst.emplace_back(4);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1  && qubitGroups[9] == 1) {
+            //qubits[0,1,2,3,4] in group 0 and qubits[5,6,7,8,9] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(5);
+              n_bottom_lst.emplace_back(5);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1  && qubitGroups[9] == 1) {
+            //qubits[0,1,2,3] in group 0 and qubits[4,5,6,7,8,9] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(4);
+              n_bottom_lst.emplace_back(6);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1  && qubitGroups[9] == 1) {
+            //qubits[0,1,2] in group 0 and qubits[3,4,5,6,7,8,9] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(7);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1  && qubitGroups[9] == 1) {
+            //qubits[0,1] in group 0 and qubits[2,3,4,5,6,7,8,9] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(8);
+            };
+          } else if (qubitGroups[0] == 0 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1  && qubitGroups[9] == 1) {
+            //qubits[0] in group 0 and qubits[1,2,3,4,5,6,7,8,9] in group 1
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(9);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0  && qubitGroups[9] == 0) {
+            //qubits[0] in group 1 and qubits[1,2,3,4,5,6,7,8,9] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(1);
+              n_bottom_lst.emplace_back(9);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0  && qubitGroups[9] == 0) {
+            //qubits[0,1] in group 1 and qubits[2,3,4,5,6,7,8,9] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(2);
+              n_bottom_lst.emplace_back(8);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 0 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0  && qubitGroups[9] == 0) {
+            //qubits[0,1,2] in group 1 and qubits[3,4,5,6,7,8,9] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(3);
+              n_bottom_lst.emplace_back(7);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 0 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0  && qubitGroups[9] == 0) {
+            //qubits[0,1,2,3] in group 1 and qubits[4,5,6,7,8,9] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(4);
+              n_bottom_lst.emplace_back(6);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 0 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0  && qubitGroups[9] == 0) {
+            //qubits[0,1,2,3,4] in group 1 and qubits[5,6,7,8,9] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(5);
+              n_bottom_lst.emplace_back(5);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 0 && qubitGroups[7] == 0 && qubitGroups[8] == 0  && qubitGroups[9] == 0) {
+            //qubits[0,1,2,3,4,5] in group 1 and qubits[6,7,8,9] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(6);
+              n_bottom_lst.emplace_back(4);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 0 && qubitGroups[8] == 0  && qubitGroups[9] == 0) {
+            //qubits[0,1,2,3,4,5,6] in group 1 and qubits[7,8,9] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(7);
+              n_bottom_lst.emplace_back(3);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 0  && qubitGroups[9] == 0) {
+            //qubits[0,1,2,3,4,5,6,7] in group 1 and qubits[8,9] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(8);
+              n_bottom_lst.emplace_back(2);
+            };
+          } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1 && qubitGroups[5] == 1 && qubitGroups[6] == 1 && qubitGroups[7] == 1 && qubitGroups[8] == 1  && qubitGroups[9] == 0) {
+            //qubits[0,1,2,3,4,5,6,7,8] in group 1 and qubits[9] in group 0
+            hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
+            ++hd.num_gatexs;
+            if (gate.kind == 24) {
+              n_top_lst.emplace_back(9);
+              n_bottom_lst.emplace_back(1);
+            };
+          }
+        }
+      break;
       default:
-        IO::errorf("multi-qubit gates are not suported by qsimh.\n");
+        IO::errorf("multi-qubit gates (>10) are not suported by qsimh.\n");
         return false;
       }
     }
@@ -237,22 +1213,40 @@ struct HybridSimulator final {
     hd.gatexs.reserve(hd.num_gatexs);
 
     // Get Schmidt matrices.
+    unsigned int counter_ntop_nbottom = 0;
     for (auto& gate0 : hd.gates0) {
-      if (gate0.parent != nullptr) {
-        auto d = GetSchmidtDecomp(gate0.parent->kind, gate0.parent->params);
+      if (gate0.parent != nullptr) { //condition met only for cut gates
+        unsigned int n_top_temp;
+        unsigned int n_bottom_temp;
+        if (n_top_lst.size()!=0){
+          n_top_temp = n_top_lst[counter_ntop_nbottom];
+          n_bottom_temp = n_bottom_lst[counter_ntop_nbottom];
+        }
+
+        double t0_sch = GetTime();
+        auto d = GetSchmidtDecomp(gate0.parent->kind, gate0.parent->params, gate0.parent->matrix, gate0.parent->qubits, gate0.parent->flattened_qubits, n_top_temp, n_bottom_temp);
+        double t1_sch = GetTime();
+        std::cout << "Time for SchmidtDecomposition: " << t1_sch-t0_sch << std::endl;
+        if (gate0.parent->kind == kBlock){ //counter should increase only for kBlock, otherwise mixed circuits with kBlock and other cut gates not possible
+          counter_ntop_nbottom += 1;
+        }
+        
         if (d.size() == 0) {
           IO::errorf("no Schmidt decomposition for gate kind %u.\n",
                      gate0.parent->kind);
           return false;
         }
 
+        //!adapt here for multiqubit gates
         unsigned schmidt_bits = SchmidtBits(d.size());
-        if (schmidt_bits > 2) {
+        if (schmidt_bits > 10) {
+          std::cout << d.size() << d.size() << std::endl;
+          std::cout << "schmidt rank "<< schmidt_bits<< std::endl;
           IO::errorf("Schmidt rank is too large for gate kind %u.\n",
                      gate0.parent->kind);
           return false;
         }
-
+        
         unsigned swapped = parts[gate0.parent->qubits[0]];
         if (gate0.parent->swapped) swapped = 1 - swapped;
         hd.gatexs.emplace_back(GateX{&gate0, nullptr, std::move(d),
@@ -309,6 +1303,9 @@ struct HybridSimulator final {
     uint64_t rmax = uint64_t{1} << bits.num_r_bits;
     uint64_t smax = uint64_t{1} << bits.num_s_bits;
 
+    std::cout << "rmax: " << rmax << std::endl;
+    std::cout << "smax: " << smax << std::endl;
+
     auto loc0 = CheckpointLocations(param, fgates0);
     auto loc1 = CheckpointLocations(param, fgates1);
 
@@ -319,6 +1316,13 @@ struct HybridSimulator final {
 
     std::vector<Index> indices;
     indices.reserve(bitstrings.size());
+
+    //count the number of paths
+    unsigned int num_paths = 1; //neutral element of mult
+    for (auto& gate_obj : hd.gatexs) {
+        num_paths = num_paths * gate_obj.schmidt_decomp.size();
+    }
+    std::cout << "Number of Feynman Paths: " << num_paths << std::endl;
 
     // Bitstring indices for part 0 and part 1. TODO: optimize.
     for (const auto& bitstring : bitstrings) {
@@ -368,6 +1372,7 @@ struct HybridSimulator final {
 
     std::vector<unsigned> prev(hd.num_gatexs, unsigned(-1));
 
+    double t0_prefix = GetTime();
     // param.prefix encodes the prefix path.
     unsigned gatex_index = SetSchmidtMatrices(
         0, num_p_gates, param.prefix, prev, hd.gatexs);
@@ -381,7 +1386,9 @@ struct HybridSimulator final {
                  param.prefix, gatex_index - 1);
       return false;
     }
+    double t1_prefix = GetTime();
 
+    double t0_root = GetTime();
     // Branch over root gates on the cut. r encodes the root path.
     for (uint64_t r = 0; r < rmax; ++r) {
       if (rmax > 1) {
@@ -397,7 +1404,9 @@ struct HybridSimulator final {
       } else {
         continue;
       }
+      double t1_root = GetTime();
 
+      double t0_suffix = GetTime();
       // Branch over suffix gates on the cut. s encodes the suffix path.
       for (uint64_t s = 0; s < smax; ++s) {
         if (smax > 1) {
@@ -405,6 +1414,7 @@ struct HybridSimulator final {
           state_space.Copy(rmax > 1 ? state1r : state1p, state1s);
         }
 
+        double t0_temp = GetTime();
         if (SetSchmidtMatrices(num_pr_gates, hd.num_gatexs,
                                s, prev, hd.gatexs) == 0) {
           // Apply the rest of the gates.
@@ -414,6 +1424,7 @@ struct HybridSimulator final {
           continue;
         }
 
+        t0_temp = GetTime();
         auto f = [](unsigned n, unsigned m, uint64_t i,
                     const StateSpace& state_space,
                     const State& state0, const State& state1,
@@ -425,9 +1436,11 @@ struct HybridSimulator final {
         };
 
         // Collect results.
+        t0_temp = GetTime();
         for_.Run(results.size(), f,
                  state_space, *rstate0, *rstate1, indices, results);
       }
+      double t1_suffix = GetTime();
     }
 
     return true;
@@ -566,6 +1579,19 @@ struct HybridSimulator final {
   }
 
   static unsigned SchmidtBits(unsigned size) {
+    if (16 < size && size <= 32 ) {
+      return 5;
+    } else if (32 < size && size <= 64) {
+      return 6;
+    } else if (64 < size && size <= 128) {
+      return 7;
+    } else if (128 < size && size <= 256) {
+      return 8;
+    } else if (256 < size && size <= 512) {
+      return 9;
+    } else if (512 < size && size <= 1024) {
+      return 10;
+    }
     switch (size) {
     case 1:
       return 0;
@@ -575,6 +1601,30 @@ struct HybridSimulator final {
       return 2;
     case 4:
       return 2;
+    case 5:
+      return 3; //not fully sure whether these assignemnts are right
+    case 6:
+      return 3;
+    case 7:
+      return 3;
+    case 8:
+      return 3;
+    case 9: //return the number of qubits involved depending on the length of feynmanPaths, but i doubt that this is correct
+      return 4;
+    case 10:
+      return 4;
+    case 11:
+      return 4;
+    case 12:
+      return 4;
+    case 13:
+      return 4;
+    case 14:
+      return 4;
+    case 15:
+      return 4;
+    case 16:
+      return 4;
     default:
       // Not supported.
       return 42;

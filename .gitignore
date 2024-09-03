@@ -5,6 +5,10 @@
 *.x
 *.mod
 
+# Ignore .log and .tlog files in benchmarks_joint_cutting/toy_examples
+benchmarks_joint_cutting/toy_examples/*.log
+benchmarks_joint_cutting/toy_examples/*.tlog
+
 # Python cache
 __pycache__
 .ipynb_checkpoints

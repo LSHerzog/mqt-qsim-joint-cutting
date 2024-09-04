@@ -65,6 +65,10 @@ struct QSimHRunner final {
 
     HybridData hd;
     bool rc = HybridSimulator::SplitLattice(parts, circuit.gates, hd);
+    if (param.verbosity > 0) {
+      double t1 = GetTime();
+      IO::messagef("Time for SplitLattice: %g \n", t1 - t0);
+    }
 
     if (!rc) {
       return false;
@@ -82,6 +86,10 @@ struct QSimHRunner final {
       PrintInfo(param, hd);
     }
 
+    double t0_2 = 0.0;
+    if (param.verbosity > 0) {
+      t0_2 = GetTime();
+    }
     auto fgates0 = Fuser::FuseGates(param, hd.num_qubits0, hd.gates0);
     if (fgates0.size() == 0 && hd.gates0.size() > 0) {
       return false;
@@ -91,9 +99,21 @@ struct QSimHRunner final {
     if (fgates1.size() == 0 && hd.gates1.size() > 0) {
       return false;
     }
+    if (param.verbosity > 0) {
+      double t1 = GetTime();
+      IO::messagef("Time for Fuser: %g seconds.\n", t1 - t0_2);
+    }
 
+    double t0_3 = 0.0;
+    if (param.verbosity > 0) {
+      t0_3 = GetTime();
+    }
     rc = HybridSimulator(param.num_threads).Run(
         param, factory, hd, parts, fgates0, fgates1, bitstrings, results);
+    if (param.verbosity > 0) {
+      double t1 = GetTime();
+      IO::messagef("Time for Run: %g seconds.\n", t1 - t0_3);
+    }
 
     if (rc && param.verbosity > 0) {
       double t1 = GetTime();

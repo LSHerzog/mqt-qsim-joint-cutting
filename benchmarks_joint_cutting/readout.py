@@ -27,7 +27,15 @@ except:
 
 
 def readout_cut(filename:str) -> dict:
-    """reads out the data for block."""
+    """
+    reads out the timestamps for the cut (qsimh) runs.
+
+    Args:
+        filename (str): path of the corresponding tlog file
+
+    Returns:
+        dict: dictionary including timestamps
+    """
 
     extracted_data = {}
 
@@ -50,7 +58,15 @@ def readout_cut(filename:str) -> dict:
     return extracted_data
 
 def readout_nocut(file_path:str) -> dict:
-    """reads out the times without cut, with qsim"""
+    """
+    reads out the timestamps for the uncut (qsim) runs.
+
+    Args:
+        filename (str): path of the corresponding tlog file
+
+    Returns:
+        dict: dictionary including timestamps
+    """   
 
     extracted_data = {}
 
@@ -68,8 +84,16 @@ def readout_nocut(file_path:str) -> dict:
 
     return extracted_data
         
-def read_file(file_path):
-    """should be used only for the amplitude output files"""
+def read_file(file_path:str) -> np.ndarray:
+    """
+    reads the amplitude output files
+
+    Args:
+        file_path (str): path to the corresponding amplitude output file
+
+    Returns:
+        np.ndarray: array of the real and imaginary parts (columns) for each amplitude (following the order of the basis configurations given during the qsim(h) run)
+    """
     with open(file_path, 'r') as file:
         data = []
         for line in file:
@@ -79,8 +103,18 @@ def read_file(file_path):
                 data.append([float(columns[0]), float(columns[1])])
         return np.array(data)
 
-def compare_files(file1, file2, tolerance=1e-7):
-    """comparison of amplitude output files"""
+def compare_files(file1:np.ndarray, file2:np.ndarray, tolerance:int=1e-7) -> bool:
+    """
+    compares the amplitudes read-in via `read_file`
+
+    Args:
+        file1 (np.ndarray): amplitudes via `read_file`
+        file2 (np.ndarray): second set of amplitudes via `read_file`
+        tolerance (int, optional): maximally allowed deviation between the values. Defaults to 1e-7.
+
+    Returns:
+        bool: whether deviation is everywhere below the threshold (True), otherwise False
+    """
     data1 = read_file(file1)
     data2 = read_file(file2)
 
@@ -107,8 +141,14 @@ def compare_files(file1, file2, tolerance=1e-7):
 
 
 def visualize_circ(path:str):
-    """visualizes a circuit from a qsimh input file. this means we turn the contents of the file into a qiskit object and plot it"""
+    """
+    generates a qiskit object from the qsim(h) circuit files and plots it
+    The plot is additionally stored.
     
+    Args:
+        path (str): path to a qsim(h) circuit text file which is supposed to be visualized
+    """
+
     inblock=False
     with open(path, 'r') as file:
         lines = file.readlines()
@@ -158,11 +198,18 @@ def visualize_circ(path:str):
     circuit_diagram.savefig(path + "diagram.pdf")      
     print("stored: "+ path + "diagram.pdf")     
 
-def print_diffs(reps, path_nocut, path_block, path_noblock, suffix=""):
+def print_diffs(reps:int, path_nocut:str, path_block:str, path_noblock:str, suffix:str=""):
     """
-    prints the results of the runs of a single circuit.
-    note that the paths only include everything up to `_rep{rep}.tlog` because we need to loop over this in this functio here
+    Prints the timestamps of the runs of a single circuit - including the uncut, cut (block) and cut (no block) run.
+    
     in case your files have a suffix, include the suffix
+
+    Args:
+        reps (int): Number of repetitions in the computation (to compute mean and std)
+        path_nocut (str): path to the tlog file for the uncut runs. Note that the paths only include everything up to `_rep{rep}.tlog` because we need to loop over this to include all instances.
+        path_block (str): path to the tlog file for the cut (block) runs. Note that the paths only include everything up to `_rep{rep}.tlog` because we need to loop over this to include all instances.
+        path_noblock (str): path to the tlog file for the cut (no block) runs. Note that the paths only include everything up to `_rep{rep}.tlog` because we need to loop over this to include all instances.
+        suffix (str, optional): If the filenames are more customized, add the corresponding suffix prior to the "rep{i}.tlog" part. Defaults to "".
     """
     full_nocut = []
     full_block = []
@@ -174,7 +221,6 @@ def print_diffs(reps, path_nocut, path_block, path_noblock, suffix=""):
 
     paths_block = 0
     paths_noblock = 0
-
 
     for rep in range(reps):
         times_nocut = path_nocut + f"_rep{rep}" + suffix + ".tlog"

@@ -9,6 +9,12 @@
 benchmarks_joint_cutting/toy_examples/*.log
 benchmarks_joint_cutting/toy_examples/*.tlog
 
+#ignore circuit files which can be easily generated
+benchmarks_joint_cutting/weightedMaxCut/*
+!benchmarks_joint_cutting/weightedMaxCut/*.*
+benchmarks_joint_cutting/weightedMaxCut/*.log
+benchmarks_joint_cutting/weightedMaxCut/*.tlog
+
 # Python cache
 __pycache__
 .ipynb_checkpoints

@@ -1,0 +1,32 @@
+Time for Parsing: 0.000237193
+Time for SchmidtDecomposition: 9.53674e-07
+Time for SchmidtDecomposition: 4.69387e-07
+Time for SchmidtDecomposition: 3.42727e-07
+Time for SchmidtDecomposition: 2.28547e-06
+Time for SchmidtDecomposition: 2.90573e-07
+Time for SchmidtDecomposition: 2.90573e-07
+Time for SchmidtDecomposition: 2.79397e-07
+Time for SchmidtDecomposition: 2.8871e-07
+Time for SchmidtDecomposition: 2.8871e-07
+Time for SchmidtDecomposition: 2.79397e-07
+Time for SchmidtDecomposition: 2.81259e-07
+Time for SchmidtDecomposition: 2.90573e-07
+Time for SchmidtDecomposition: 2.92435e-07
+Time for SchmidtDecomposition: 2.92435e-07
+Time for SchmidtDecomposition: 1.45286e-06
+Time for SchmidtDecomposition: 2.81259e-07
+Time for SchmidtDecomposition: 2.79397e-07
+Time for SplitLattice: 0.000113996 
+part 0: 16, part 1: 14
+17 gates on the cut
+breakup: 0p+5r+12s
+Time for Fuser: 6.31306e-05 seconds.
+rmax: 32
+smax: 4096
+Number of Feynman Paths: 131072
+Time for Run: 125.327 seconds.
+time elapsed 125.327 seconds.
+all done.
+The 'For' type being used is: ParallelFor
+The 'Simulator' implementation being used is: SimulatorAVX2
+Number of threads: 16

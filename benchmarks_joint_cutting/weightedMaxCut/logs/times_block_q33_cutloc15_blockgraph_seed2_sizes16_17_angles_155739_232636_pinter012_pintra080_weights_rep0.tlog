@@ -1,0 +1,46 @@
+Time for Multiplying Unitaries (gateBlock.Create): 0.0198653
+Time for ParseBlockGates: 0.019923
+Time for Multiplying Unitaries (gateBlock.Create): 0.00192355
+Time for ParseBlockGates: 0.010051
+Time for Multiplying Unitaries (gateBlock.Create): 8.88724e-05
+Time for ParseBlockGates: 9.80292e-05
+Time for Multiplying Unitaries (gateBlock.Create): 0.000497971
+Time for ParseBlockGates: 0.000504499
+Time for Multiplying Unitaries (gateBlock.Create): 0.000265311
+Time for ParseBlockGates: 0.00972317
+Time for Multiplying Unitaries (gateBlock.Create): 8.97516e-05
+Time for ParseBlockGates: 0.000102017
+Time for Multiplying Unitaries (gateBlock.Create): 8.69874e-05
+Time for ParseBlockGates: 9.35625e-05
+Time for Multiplying Unitaries (gateBlock.Create): 8.65087e-05
+Time for ParseBlockGates: 9.23015e-05
+Time for Parsing: 0.0417288
+Time for SchmidtDecomposition: 0.018153
+Time for SchmidtDecomposition: 0.000970028
+Time for SchmidtDecomposition: 6.52485e-05
+Time for SchmidtDecomposition: 0.000219002
+Time for SchmidtDecomposition: 0.000200527
+Time for SchmidtDecomposition: 4.95967e-05
+Time for SchmidtDecomposition: 4.75813e-05
+Time for SchmidtDecomposition: 4.60185e-05
+Time for SchmidtDecomposition: 2.26311e-06
+Time for SchmidtDecomposition: 1.17905e-06
+Time for SchmidtDecomposition: 9.79751e-07
+Time for SchmidtDecomposition: 1.30199e-06
+Time for SchmidtDecomposition: 1.69314e-06
+Time for SchmidtDecomposition: 1.34297e-06
+Time for SchmidtDecomposition: 1.12318e-06
+Time for SplitLattice: 0.0394265 
+part 0: 17, part 1: 16
+15 gates on the cut
+breakup: 0p+5r+10s
+Time for Fuser: 0.000119552 seconds.
+rmax: 32
+smax: 1024
+Number of Feynman Paths: 32768
+Time for Run: 16.8321 seconds.
+time elapsed 16.8716 seconds.
+all done.
+The 'For' type being used is: ParallelFor
+The 'Simulator' implementation being used is: SimulatorAVX2
+Number of threads: 16

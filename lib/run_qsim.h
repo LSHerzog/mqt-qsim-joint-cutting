@@ -78,9 +78,12 @@ struct QSimRunner final {
                   const Circuit& circuit, MeasurementFunc measure) {
     double t0 = 0.0;
     double t1 = 0.0;
+    double t0_tot = 0.0;
+    double t_sim0 = 0.0;
 
     if (param.verbosity > 1) {
       t0 = GetTime();
+      t0_tot = GetTime();
     }
 
     RGen rgen(param.seed);
@@ -120,6 +123,9 @@ struct QSimRunner final {
 
     unsigned cur_time_index = 0;
 
+    if (param.verbosity > 0) {
+      t_sim0 = GetTime();
+    }
     // Apply fused gates.
     for (std::size_t i = 0; i < fused_gates.size(); ++i) {
       if (param.verbosity > 3) {
@@ -146,11 +152,17 @@ struct QSimRunner final {
         ++cur_time_index;
       }
     }
+    if (param.verbosity > 0) {
+      double t_sim1 = GetTime();
+      IO::messagef("Time for ApplyFusedGates: %g\n", t_sim1 - t_sim0);
+    }
 
     if (param.verbosity > 0) {
       state_space.DeviceSync();
       double t2 = GetTime();
       IO::messagef("time is %g seconds.\n", t2 - t0);
+      IO::messagef("time elapsed %g seconds.\n", t2 - t0_tot);
+
     }
 
     return true;
@@ -176,9 +188,11 @@ struct QSimRunner final {
                   std::vector<MeasurementResult>& measure_results) {
     double t0 = 0.0;
     double t1 = 0.0;
+    double t0_tot = 0.0;
 
     if (param.verbosity > 1) {
       t0 = GetTime();
+      t0_tot = GetTime();
     }
 
     RGen rgen(param.seed);
@@ -233,6 +247,7 @@ struct QSimRunner final {
       state_space.DeviceSync();
       double t2 = GetTime();
       IO::messagef("simu time is %g seconds.\n", t2 - t0);
+      IO::messagef("time elapsed %g seconds.\n", t2 - t0_tot);
     }
 
     return true;

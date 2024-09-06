@@ -19,7 +19,9 @@
 #include <cmath>
 #include <vector>
 
+#include "joint_cutting_utils.h"
 #include "gate.h"
+#include <stdexcept>
 
 namespace qsim {
 
@@ -49,6 +51,9 @@ enum GateKind {
   kGateMatrix1, // one-qubit matrix gate
   kGateMatrix2, // two-qubit matrix gate
   kGateGPh,     // global phase gate
+  kBlock,       //block gate
+  kGateCY,      //cy
+  kGateRZZ,     //rzz
   kDecomp = gate::kDecomp,
   kMeasurement = gate::kMeasurement,
 };
@@ -405,6 +410,15 @@ struct GateCZ {
                          0, 0, 0, 0, 0, 0, -1, 0});
   }
 
+  //CZ agnostic regarding qubit order, but want to avoid flipped qubits anyway
+  static GateQSim<fp_type> CreateReversed(unsigned time, unsigned q0, unsigned q1) {
+  return CreateGateBlockRev<GateQSim<fp_type>, GateCZ> (
+    time, {q1, q0}, {1, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 1, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 1, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, -1, 0});
+  }
+
   static schmidt_decomp_type<fp_type> SchmidtDecomp() {
     return schmidt_decomp_type<fp_type>{
       {{1, 0, 0, 0, 0, 0, 0, 0}, {1, 0, 0, 0, 0, 0, 1, 0}},
@@ -432,10 +446,98 @@ struct GateCNot {
                          0, 0, 1, 0, 0, 0, 0, 0});
   }
 
+  static GateQSim<fp_type> CreateReversed(unsigned time, unsigned q0, unsigned q1) {
+    return CreateGateBlockRev<GateQSim<fp_type>, GateCNot> (
+      time, {q1, q0}, {1, 0, 0, 0, 0, 0, 0, 0, 
+                       0, 0, 1, 0, 0, 0, 0, 0, 
+                       0, 0, 0, 0, 0, 0, 1, 0, 
+                       0, 0, 0, 0, 1, 0, 0, 0});
+  }
+
   static schmidt_decomp_type<fp_type> SchmidtDecomp() {
     return schmidt_decomp_type<fp_type>{
       {{1, 0, 0, 0, 0, 0, 0, 0}, {1, 0, 0, 0, 0, 0, 1, 0}},
       {{0, 0, 0, 0, 0, 0, 1, 0}, {0, 0, 1, 0, 1, 0, 0, 0}},
+    };
+  }
+};
+
+/**
+ * The controlled-Y (CY) gate.
+ */
+template <typename fp_type>
+struct GateCY {
+  static constexpr GateKind kind = kGateCY;
+  static constexpr char name[] = "cy";
+  static constexpr unsigned num_qubits = 2;
+  static constexpr bool symmetric = false;
+
+  static GateQSim<fp_type> Create(unsigned time, unsigned q0, unsigned q1) {
+    return CreateGate<GateQSim<fp_type>, GateCY>(
+        time, {q0, q1}, {1, 0, 0, 0, 0, 0, 0, 0, 
+                         0, 0, 0, 0, 0, 0, 0, -1, 
+                         0, 0, 0, 0, 1, 0, 0, 0, 
+                         0, 0, 0, 1, 0, 0, 0, 0});
+  }
+
+  static GateQSim<fp_type> CreateReversed(unsigned time, unsigned q0, unsigned q1) {
+  return CreateGateBlockRev<GateQSim<fp_type>, GateCY> (
+    time, {q1, q0}, {1, 0, 0, 0, 0, 0, 0, 0, 
+                     0, 0, 1, 0, 0, 0, 0, 0, 
+                     0, 0, 0, 0, 0, 0, 0, -1, 
+                     0, 0, 0, 0, 0, 1, 0, 0});
+  }
+
+  static schmidt_decomp_type<fp_type> SchmidtDecomp() {
+    return schmidt_decomp_type<fp_type>{
+      {{1, 0, 0, 0, 0, 0, 0, 0}, {1, 0, 0, 0, 0, 0, 1, 0}},
+      {{0, 0, 0, 0, 0, 0, 1, 0}, {0, 0, 0, -1, 0, 1, 0, 0}},
+    };
+  }
+};
+
+/**
+ * The RZZ gate.
+ */
+template <typename fp_type>
+struct GateRZZ {
+  static constexpr GateKind kind = kGateRZZ;
+  static constexpr char name[] = "rzz";
+  static constexpr unsigned num_qubits = 2;
+  static constexpr bool symmetric = false;
+
+  static GateQSim<fp_type> Create(unsigned time, unsigned q0, unsigned q1, fp_type theta) {
+    fp_type a_re = std::cos(-theta/2.0);
+    fp_type a_im = std::sin(-theta/2.0);
+    fp_type b_re = std::cos(theta/2.0);
+    fp_type b_im = std::sin(theta/2.0);
+    return CreateGate<GateQSim<fp_type>, GateRZZ>(
+        time, {q0, q1}, {a_re, a_im, 0, 0, 0, 0, 0, 0, 
+                         0, 0, b_re, b_im, 0, 0, 0, 0, 
+                         0, 0, 0, 0, b_re, b_im, 0, 0, 
+                         0, 0, 0, 0, 0, 0, a_re, a_im}, {theta});
+  }
+
+  static GateQSim<fp_type> CreateReversed(unsigned time, unsigned q0, unsigned q1, fp_type theta) {
+    fp_type a_re = std::cos(-theta/2.0);
+    fp_type a_im = std::sin(-theta/2.0);
+    fp_type b_re = std::cos(theta/2.0);
+    fp_type b_im = std::sin(theta/2.0);
+    return CreateGateBlockRev<GateQSim<fp_type>, GateRZZ> (
+      time, {q1, q0}, {a_re, a_im, 0, 0, 0, 0, 0, 0, 
+                      0, 0, b_re, b_im, 0, 0, 0, 0, 
+                      0, 0, 0, 0, b_re, b_im, 0, 0, 
+                      0, 0, 0, 0, 0, 0, a_re, a_im}, {theta});
+  }
+
+  static schmidt_decomp_type<fp_type> SchmidtDecomp(fp_type theta) {
+    fp_type a_re = std::cos(-theta/2.0);
+    fp_type a_im = std::sin(-theta/2.0);
+    fp_type b_re = std::cos(theta/2.0);
+    fp_type b_im = std::sin(theta/2.0);
+    return schmidt_decomp_type<fp_type>{
+      {{1, 0, 0, 0, 0, 0, 0, 0}, {a_re, a_im, 0, 0, 0, 0, b_re, b_im}},
+      {{0, 0, 0, 0, 0, 0, 1, 0}, {b_re, b_im, 0, 0, 0, 0, a_re, a_im}},
     };
   }
 };
@@ -455,6 +557,15 @@ struct GateSwap {
   static GateQSim<fp_type> Create(unsigned time, unsigned q0, unsigned q1) {
     return CreateGate<GateQSim<fp_type>, GateSwap>(
         time, {q0, q1}, {1, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 1, 0, 0, 0,
+                         0, 0, 1, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 1, 0});
+  }
+
+  //swap agnostic regarding qubit order, but want to avoid flipped qubits anyway, just for overall consistency
+  static GateQSim<fp_type> CreateReversed(unsigned time, unsigned q0, unsigned q1) {
+  return CreateGateBlockRev<GateQSim<fp_type>, GateSwap> (
+    time, {q1, q0}, {1, 0, 0, 0, 0, 0, 0, 0,
                          0, 0, 0, 0, 1, 0, 0, 0,
                          0, 0, 1, 0, 0, 0, 0, 0,
                          0, 0, 0, 0, 0, 0, 1, 0});
@@ -486,6 +597,15 @@ struct GateIS {
   static GateQSim<fp_type> Create(unsigned time, unsigned q0, unsigned q1) {
     return CreateGate<GateQSim<fp_type>, GateIS>(
         time, {q0, q1}, {1, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 1, 0, 0,
+                         0, 0, 0, 1, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 1, 0});
+  }
+
+  //iswap agnostic regarding qubit order, but want to avoid flipped qubits anyway, just for overall consistency
+  static GateQSim<fp_type> CreateReversed(unsigned time, unsigned q0, unsigned q1) {
+  return CreateGateBlockRev<GateQSim<fp_type>, GateIS> (
+    time, {q1, q0}, {1, 0, 0, 0, 0, 0, 0, 0,
                          0, 0, 0, 0, 0, 1, 0, 0,
                          0, 0, 0, 1, 0, 0, 0, 0,
                          0, 0, 0, 0, 0, 0, 1, 0});
@@ -528,6 +648,25 @@ struct GateFS {
 
     return CreateGate<GateQSim<fp_type>, GateFS>(
         time, {q0, q1}, {1, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, ct, 0, 0, -st, 0, 0,
+                         0, 0, 0, -st, ct, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, cp, -sp}, {theta, phi});
+  }
+
+  //fs agnostic regarding qubit order, but want to avoid flipped qubits anyway, just for overall consistency
+  static GateQSim<fp_type> CreateReversed(unsigned time, unsigned q0, unsigned q1, fp_type theta, fp_type phi) {
+  
+  if (phi < 0) {
+      phi += 2 * 3.141592653589793;
+    }
+
+  fp_type ct = std::cos(theta);
+  fp_type st = std::sin(theta);
+  fp_type cp = std::cos(phi);
+  fp_type sp = std::sin(phi);
+  
+  return CreateGateBlockRev<GateQSim<fp_type>, GateFS> (
+    time, {q1, q0}, {1, 0, 0, 0, 0, 0, 0, 0,
                          0, 0, ct, 0, 0, -st, 0, 0,
                          0, 0, 0, -st, ct, 0, 0, 0,
                          0, 0, 0, 0, 0, 0, cp, -sp}, {theta, phi});
@@ -598,6 +737,17 @@ struct GateCP {
                          0, 0, 0, 0, 0, 0, cp, -sp}, {phi});
   }
 
+  //cz agnostic regarding qubit order, but want to avoid flipped qubits anyway, just for overall consistency
+  static GateQSim<fp_type> CreateReversed(unsigned time, unsigned q0, unsigned q1, fp_type phi) {
+    fp_type cp = std::cos(phi);
+    fp_type sp = std::sin(phi);
+    return CreateGateBlockRev<GateQSim<fp_type>, GateCP> (
+      time, {q1, q0}, {1, 0, 0, 0, 0, 0, 0, 0,
+                          0, 0, 1, 0, 0, 0, 0, 0,
+                          0, 0, 0, 0, 1, 0, 0, 0,
+                          0, 0, 0, 0, 0, 0, cp, -sp}, {phi});
+  }
+
   static schmidt_decomp_type<fp_type> SchmidtDecomp(fp_type phi) {
     fp_type cp = std::cos(phi);
     fp_type sp = std::sin(phi);
@@ -632,14 +782,175 @@ struct GateMatrix2 {
   }
 };
 
+
+/**
+ * A block of multiple 1 and 2 qubit gates which is constructed from the gates above
+ */
+template <typename fp_type>
+struct GateBlock {
+  static constexpr GateKind kind = kBlock;
+  static constexpr char name[] = "block";
+  static constexpr bool symmetric = false;
+
+  //instance specific data
+  Matrix<fp_type> filled_mult_gate;
+  unsigned int block_size_;
+
+  // Constructor to initialize instance variables
+  GateBlock(unsigned int block_size) : block_size_(block_size) {}
+
+  template <typename M = Matrix<fp_type>>
+  GateQSim<fp_type> Create(unsigned time, std::vector<GateQSim<fp_type>>& gates_temp, std::vector<std::vector<unsigned int>> qubit_locations_tups) {
+    if (gates_temp.size() != qubit_locations_tups.size()) {
+      throw std::runtime_error("There must be as many defined locations as gates!");
+    }
+    //find lowest idx in qubit_locations_tup, assign to shift
+    std::vector<unsigned int> flattened;
+    for (const auto& vec : qubit_locations_tups) {
+        flattened.insert(flattened.end(), vec.begin(), vec.end());
+    }
+    unsigned int shift = *std::min_element(flattened.begin(), flattened.end());
+
+    //sort and remove duplicates from new "qubits" value "flattened"
+    std::sort(flattened.begin(), flattened.end());
+    flattened.erase(std::unique(flattened.begin(), flattened.end()), flattened.end());
+
+    //overwrite flattened for input in CreateGate, such that all qubits are included even if no gate acts on some qubit(s)
+    std::vector<unsigned int> flattened_full;
+    unsigned int lowest_qubit = flattened.front();
+    unsigned int highest_qubit = flattened.back();
+    for (int r = lowest_qubit; r <= highest_qubit; ++r) {
+      flattened_full.push_back(r);
+    }
+
+    //case distinction to create `reduced` blocks if some qubits are inactive. this way some identiteis are only added AFTER the SVD to avoid doing SVDs of absurdely large matrices (e.g. CNOT(0,7) CNOT(0,8))
+    std::sort(flattened_full.begin(), flattened_full.end());
+
+    std::vector<unsigned int> inactive_qubits;
+    std::set_difference(flattened_full.begin(), flattened_full.end(), flattened.begin(), flattened.end(), std::back_inserter(inactive_qubits));
+
+    unsigned int block_size_red = flattened.size();
+
+    std::vector<unsigned int> diff_active; //differences between active qubits
+    for (int i = 0; i < flattened.size()-1; ++i) {
+      unsigned int dist = std::abs(static_cast<int>(flattened[i + 1]) - static_cast<int>(flattened[i]));
+      diff_active.push_back(dist-1);
+    }
+
+    std::vector<std::vector<unsigned int>> qubit_locations_tups_red;
+    if (block_size_red < block_size_) { // If inactive qubits are present
+        for (const auto& qubit_loc : qubit_locations_tups) {
+            if (qubit_loc.size() == 2) { // 2-qubit gate
+                unsigned int i = qubit_loc[0];
+                unsigned int j = qubit_loc[1];
+
+                int i_idx = static_cast<int>(std::distance(flattened.begin(), std::find(flattened.begin(), flattened.end(), i))) - 1;
+                int j_idx = static_cast<int>(std::distance(flattened.begin(), std::find(flattened.begin(), flattened.end(), j))) - 1;
+
+                unsigned int total_diff_i = 0;
+                unsigned int total_diff_j = 0;
+                if (i>j) {
+                    for (int r = 0; r <= i_idx; ++r) {
+                        total_diff_i += diff_active[r];
+                    }
+                    for (int r = 0; r <= j_idx; ++r) {
+                        total_diff_j += diff_active[r];
+                    }
+                } else {
+                    for (int r = 0; r <= j_idx; ++r) {
+                        total_diff_j += diff_active[r];
+                    }
+                    for (int r = 0; r <= i_idx; ++r) {
+                        total_diff_i += diff_active[r];
+                    }
+                }
+
+                if (i_idx >= 0) {
+                    i -= total_diff_i;
+                }
+                if (j_idx >= 0) {
+                    j -= total_diff_j;
+                }
+                qubit_locations_tups_red.push_back({i, j});
+            } else if (qubit_loc.size() == 1) { // 1-qubit gate
+                unsigned int i = qubit_loc[0];
+                int i_idx = static_cast<int>(std::distance(flattened.begin(), std::find(flattened.begin(), flattened.end(), i))) - 1;
+
+                if (i_idx >= 0) {
+                    unsigned int total_diff = 0;
+                    for (int r = 0; r <= i_idx; ++r) {
+                        total_diff += diff_active[r];
+                    }
+                    i -= total_diff;
+                }
+                qubit_locations_tups_red.push_back({i});
+            } else {
+                throw std::runtime_error("Larger than 2-qubit gates are not supported by blocked gates in qsimh.");
+            }
+        }
+    } else if (block_size_red > block_size_) {
+      throw std::runtime_error("The reduced (without inactive qubits) block size cannot be larger than the full block size.");
+    } else if (block_size_ == block_size_red) {//standard case
+      qubit_locations_tups_red = qubit_locations_tups;
+    }
+
+    filled_mult_gate = genIdentity<fp_type>(block_size_red);
+    std::vector<unsigned int> qubits_tot;
+
+    for (int i = 0; i < gates_temp.size(); ++i) {  
+      GateQSim<fp_type> gate_temp = gates_temp[i];
+      std::vector<unsigned int> qubits = qubit_locations_tups_red[i];
+
+      const auto& mat = gate_temp.matrix; //extract the matrix from the gate
+      M M_filled = FillId(mat, qubits, block_size_red, shift);//fill the matrix according to block_size
+      MatrixMultiply(block_size_red, M_filled, filled_mult_gate); //multiply the gates, the latter is overwritten
+      qubits_tot.push_back(i);
+    }
+
+    return CreateGate<GateQSim<fp_type>, GateBlock>(time, flattened, std::forward<M>(filled_mult_gate), {}, std::forward<std::vector<unsigned int>>(flattened));
+  }
+
+  template <typename M = Matrix<fp_type>> 
+  //external filled_mult_gate necessary to be able to call the method in GetSchmidtDecomp
+  schmidt_decomp_type<fp_type> SchmidtDecomp(M filled_mult_gate_, unsigned int n_top, unsigned int n_bottom) {
+    schmidt_decomp_type<fp_type> res = PerformSVD(filled_mult_gate_, block_size_, n_top, n_bottom, true); //!set to false later for less overhead
+    return res;
+  }
+  
+};
+
+
 template <typename fp_type>
 inline schmidt_decomp_type<fp_type> GetSchmidtDecomp(
-    GateKind kind, const std::vector<fp_type>& params) {
+    GateKind kind, const std::vector<fp_type>& params, Matrix<fp_type> m, std::vector<unsigned int> qubits, std::vector<unsigned int> flattened_qubits, unsigned int n_top, unsigned int n_bottom) { 
+  
+  //must be in a separate clause as an instance of the class must be called
+  if (kind == kBlock) {
+    unsigned int block_size = qubits.size();
+    unsigned int block_size_red = flattened_qubits.size();
+    unsigned int shift = *std::min_element(flattened_qubits.begin(), flattened_qubits.end());
+    GateBlock<fp_type> gate_block(block_size_red);
+    unsigned int n_top_red = 0;
+    unsigned int n_bottom_red = 0;
+    for (auto f : flattened_qubits) {
+      if (f - shift < n_top) {
+        n_top_red += 1;
+      } else {
+        n_bottom_red += 1;
+      }
+    }
+
+    schmidt_decomp_type<fp_type> res_red = gate_block.SchmidtDecomp(m, n_top, n_bottom);
+    return res_red;
+  }
+  
   switch (kind) {
   case kGateId2:
     return GateId2<fp_type>::SchmidtDecomp();
   case kGateCZ:
     return GateCZ<fp_type>::SchmidtDecomp();
+  case kGateCY:
+    return GateCY<fp_type>::SchmidtDecomp();
   case kGateCNot:
     return GateCNot<fp_type>::SchmidtDecomp();
   case kGateSwap:
@@ -650,6 +961,8 @@ inline schmidt_decomp_type<fp_type> GetSchmidtDecomp(
     return GateFS<fp_type>::SchmidtDecomp(params[0], params[1]);
   case kGateCP:
     return GateCP<fp_type>::SchmidtDecomp(params[0]);
+  case kGateRZZ:
+    return GateRZZ<fp_type>::SchmidtDecomp(params[0]);
   default:
     // Single qubit gates: empty Schmidt decomposition.
     return schmidt_decomp_type<fp_type>{};

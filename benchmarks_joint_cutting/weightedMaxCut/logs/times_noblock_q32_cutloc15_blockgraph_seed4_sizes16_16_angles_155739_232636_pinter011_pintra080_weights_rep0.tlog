@@ -1,0 +1,34 @@
+Time for Parsing: 0.000552893
+Time for SchmidtDecomposition: 3.3062e-06
+Time for SchmidtDecomposition: 6.38887e-07
+Time for SchmidtDecomposition: 5.10365e-07
+Time for SchmidtDecomposition: 4.19095e-07
+Time for SchmidtDecomposition: 4.2282e-07
+Time for SchmidtDecomposition: 4.39584e-07
+Time for SchmidtDecomposition: 3.33413e-07
+Time for SchmidtDecomposition: 3.40864e-07
+Time for SchmidtDecomposition: 4.20958e-07
+Time for SchmidtDecomposition: 4.41447e-07
+Time for SchmidtDecomposition: 3.29688e-07
+Time for SchmidtDecomposition: 1.43982e-06
+Time for SchmidtDecomposition: 4.00469e-07
+Time for SchmidtDecomposition: 4.20958e-07
+Time for SchmidtDecomposition: 3.20375e-07
+Time for SchmidtDecomposition: 4.11645e-07
+Time for SchmidtDecomposition: 4.11645e-07
+Time for SchmidtDecomposition: 3.40864e-07
+Time for SchmidtDecomposition: 4.19095e-07
+Time for SchmidtDecomposition: 3.39001e-07
+Time for SchmidtDecomposition: 3.39001e-07
+Time for SchmidtDecomposition: 1.70246e-06
+Time for SchmidtDecomposition: 3.29688e-07
+Time for SchmidtDecomposition: 4.28408e-07
+Time for SchmidtDecomposition: 3.40864e-07
+Time for SplitLattice: 0.000104131 
+part 0: 16, part 1: 16
+25 gates on the cut
+breakup: 0p+5r+20s
+Time for Fuser: 6.17765e-05 seconds.
+rmax: 32
+smax: 1048576
+Number of Feynman Paths: 33554432

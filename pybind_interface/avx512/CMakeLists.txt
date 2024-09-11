@@ -14,7 +14,12 @@ if(APPLE)
     link_directories("/usr/local/lib" "/usr/local/opt/llvm/lib")
 endif()
 
+# Find BLAS and LAPACK
+find_package(BLAS REQUIRED)
+find_package(LAPACK REQUIRED)
+
 INCLUDE(../GetPybind11.cmake)
 pybind11_add_module(qsim_avx512 pybind_main_avx512.cpp)
 
-target_link_libraries(qsim_avx512 PUBLIC OpenMP::OpenMP_CXX)
+#target_link_libraries(qsim_avx512 PUBLIC OpenMP::OpenMP_CXX)
+target_link_libraries(qsim_avx512 PUBLIC OpenMP::OpenMP_CXX ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})

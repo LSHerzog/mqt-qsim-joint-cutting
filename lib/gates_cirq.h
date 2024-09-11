@@ -22,6 +22,7 @@
 
 #include "gate.h"
 #include "matrix.h"
+#include "joint_cutting_utils.h"
 
 namespace qsim {
 
@@ -75,6 +76,8 @@ enum GateKind {
   kMatrixGate2,  // Two-qubit matrix gate.
   kMatrixGate,   // Multi-qubit matrix gate.
   kGlobalPhaseGate,
+  kBlock, //block gate
+  kGateRZZ, //rzz
   kDecomp = gate::kDecomp,
   kMeasurement = gate::kMeasurement,
 };
@@ -354,6 +357,23 @@ struct CXPowGate {
         {exponent, global_shift});
   }
 
+  static GateCirq<fp_type> CreateReversed(unsigned time, unsigned q0, unsigned q1,
+                                          fp_type exponent, fp_type global_shift = 0) {
+    fp_type c = std::cos(pi * exponent * 0.5);
+    fp_type s = std::sin(pi * exponent * 0.5);
+    fp_type gc = std::cos(pi * exponent * global_shift);
+    fp_type gs = std::sin(pi * exponent * global_shift);
+    fp_type ec = std::cos(pi * exponent * (0.5 + global_shift));
+    fp_type es = std::sin(pi * exponent * (0.5 + global_shift));
+
+    return CreateGateBlockRev<GateCirq<fp_type>, CXPowGate> (
+      time, {q1, q0}, {gc, gs, 0, 0, 0, 0, 0, 0, 
+                       0, 0, gc, gs, 0, 0, 0, 0, 
+                       0, 0, 0, 0, c*ec, c*es, es*s, -ec*s, 
+                       0, 0, 0, 0, es*s, -ec*s, c*ec, c*es}, {exponent, global_shift});
+  }
+
+
   static schmidt_decomp_type<fp_type> SchmidtDecomp(
       fp_type exponent, fp_type global_shift) {
     fp_type c = std::cos(pi * exponent * 0.5);
@@ -537,6 +557,14 @@ struct CX {
                          0, 0, 0, 0, 0, 0, 1, 0,
                          0, 0, 0, 0, 1, 0, 0, 0,
                          0, 0, 1, 0, 0, 0, 0, 0});
+  }
+
+  static GateCirq<fp_type> CreateReversed(unsigned time, unsigned q0, unsigned q1) {
+    return CreateGateBlockRev<GateCirq<fp_type>, CX> (
+      time, {q1, q0}, {1, 0, 0, 0, 0, 0, 0, 0, 
+                       0, 0, 1, 0, 0, 0, 0, 0, 
+                       0, 0, 0, 0, 0, 0, 1, 0, 
+                       0, 0, 0, 0, 1, 0, 0, 0});
   }
 
   static schmidt_decomp_type<fp_type> SchmidtDecomp() {
@@ -1137,6 +1165,21 @@ struct PhasedISwapPowGate {
                          0, 0, 0, 0, 0, 0, 1, 0}, {phase_exponent, exponent});
   }
 
+  static GateCirq<fp_type> CreateReversed(unsigned time, unsigned q0, unsigned q1,
+                                          fp_type phase_exponent = 0.25,
+                                          fp_type exponent = 1.0) {
+    fp_type fc = std::cos(2 * pi * phase_exponent);
+    fp_type fs = std::sin(2 * pi * phase_exponent);
+    fp_type c = std::cos(pi * exponent * 0.5);
+    fp_type s = std::sin(pi * exponent * 0.5);
+
+    return CreateGateBlockRev<GateCirq<fp_type>, PhasedISwapPowGate> (
+      time, {q1, q0}, {1, 0, 0, 0, 0, 0, 0, 0, 
+                       0, 0, c, 0, -fs*s, fc*s, 0, 0, 
+                       0, 0, fs*s, fc*s, c, 0, 0, 0, 
+                       0, 0, 0, 0, 0, 0, 1, 0}, {phase_exponent, exponent});
+  }
+
   static schmidt_decomp_type<fp_type> SchmidtDecomp(
       fp_type phase_exponent, fp_type exponent) {
     fp_type fc = std::cos(2 * pi * phase_exponent);
@@ -1182,6 +1225,19 @@ struct givens {
                          0, 0, -s, 0, c, 0, 0, 0,
                          0, 0, 0, 0, 0, 0, 1, 0}, {phi});
   }
+
+  static GateCirq<fp_type> CreateReversed(unsigned time, unsigned q0, unsigned q1,
+                                  fp_type phi) {
+    fp_type c = std::cos(phi);
+    fp_type s = std::sin(phi);
+
+    // Matrix is in this form because the simulator uses inverse qubit order.
+    return CreateGateBlockRev<GateCirq<fp_type>, givens>(
+        time, {q0, q1}, {1, 0, 0, 0, 0, 0, 0, 0, 
+                         0, 0, c, 0, -s, 0, 0, 0, 
+                         0, 0, s, 0, c, 0, 0, 0, 
+                         0, 0, 0, 0, 0, 0, 1, 0}, {phi});
+  }  
 
   static schmidt_decomp_type<fp_type> SchmidtDecomp(fp_type phi) {
     fp_type c = std::cos(phi);
@@ -1310,6 +1366,29 @@ struct TwoQubitDiagonalGate {
                          0, 0, cs[2], ss[2], 0, 0, 0, 0,
                          0, 0, 0, 0, cs[1], ss[1], 0, 0,
                          0, 0, 0, 0, 0, 0, cs[3], ss[3]});
+  }
+
+  static GateCirq<fp_type> CreateReversed(unsigned time,
+                                  unsigned q0, unsigned q1,
+                                  const std::vector<fp_type>& angles) {
+    std::vector<fp_type> cs;
+    std::vector<fp_type> ss;
+    cs.reserve(4);
+    ss.reserve(4);
+
+    for (std::size_t i = 0; i < angles.size(); ++i) {
+      cs.push_back(std::cos(angles[i]));
+      ss.push_back(std::sin(angles[i]));
+    }
+
+    for (std::size_t i = angles.size(); i < 4; ++i) {
+      cs.push_back(1);
+      ss.push_back(0);
+    }
+
+    // Matrix is in this form because the simulator uses inverse qubit order.
+    return CreateGateBlockRev<GateCirq<fp_type>, TwoQubitDiagonalGate>(
+        time, {q0, q1}, {cs[0], ss[0], 0, 0, 0, 0, 0, 0, 0, 0, cs[1], ss[1], 0, 0, 0, 0, 0, 0, 0, 0, cs[2], ss[2], 0, 0, 0, 0, 0, 0, 0, 0, cs[3], ss[3]});
   }
 };
 
@@ -1584,11 +1663,177 @@ struct MatrixGate {
   }
 };
 
+/**
+ * A block of multiple 1 and 2 qubit gates which is constructed from the gates above
+ */
+template <typename fp_type>
+struct GateBlock {
+  static constexpr GateKind kind = kBlock;
+  static constexpr char name[] = "block";
+  static constexpr bool symmetric = false;
+
+  //instance specific data
+  Matrix<fp_type> filled_mult_gate;
+  unsigned int block_size_;
+
+  // Constructor to initialize instance variables
+  GateBlock(unsigned int block_size) : block_size_(block_size) {}
+
+  template <typename M = Matrix<fp_type>>
+  GateCirq<fp_type> Create(unsigned time, std::vector<GateCirq<fp_type>>& gates_temp, std::vector<std::vector<unsigned int>> qubit_locations_tups) {
+    if (gates_temp.size() != qubit_locations_tups.size()) {
+      throw std::runtime_error("There must be as many defined locations as gates!");
+    }
+    //find lowest idx in qubit_locations_tup, assign to shift
+    std::vector<unsigned int> flattened;
+    for (const auto& vec : qubit_locations_tups) {
+        flattened.insert(flattened.end(), vec.begin(), vec.end());
+    }
+    unsigned int shift = *std::min_element(flattened.begin(), flattened.end());
+
+    //sort and remove duplicates from new "qubits" value "flattened"
+    std::sort(flattened.begin(), flattened.end());
+    flattened.erase(std::unique(flattened.begin(), flattened.end()), flattened.end());
+
+    std::cout << "flattened\n";
+    for (auto el : flattened) {
+      std::cout << el << " ";
+    }
+    std::cout<< "\n";
+
+    //overwrite flattened for input in CreateGate, such that all qubits are included even if no gate acts on some qubit(s)
+    std::vector<unsigned int> flattened_full;
+    unsigned int lowest_qubit = flattened.front();
+    unsigned int highest_qubit = flattened.back();
+    for (unsigned int r = lowest_qubit; r <= highest_qubit; ++r) {
+      flattened_full.push_back(r);
+    }
+
+    //case distinction to create `reduced` blocks if some qubits are inactive. this way some identiteis are only added AFTER the SVD to avoid doing SVDs of absurdely large matrices (e.g. CNOT(0,7) CNOT(0,8))
+    std::sort(flattened_full.begin(), flattened_full.end());
+
+    std::cout << "flattened_full\n";
+    for (auto el : flattened_full) {
+      std::cout << el << " ";
+    }
+    std::cout << "\n";
+
+    std::vector<unsigned int> inactive_qubits;
+    std::set_difference(flattened_full.begin(), flattened_full.end(), flattened.begin(), flattened.end(), std::back_inserter(inactive_qubits));
+
+    unsigned int block_size_red = flattened.size();
+
+    std::vector<unsigned int> diff_active; //differences between active qubits
+    for (unsigned int i = 0; i < flattened.size()-1; ++i) {
+      unsigned int dist = std::abs(static_cast<int>(flattened[i + 1]) - static_cast<int>(flattened[i]));
+      diff_active.push_back(dist-1);
+    }
+
+    std::vector<std::vector<unsigned int>> qubit_locations_tups_red;
+    if (block_size_red < block_size_) { // If inactive qubits are present
+        for (const auto& qubit_loc : qubit_locations_tups) {
+            if (qubit_loc.size() == 2) { // 2-qubit gate
+                unsigned int i = qubit_loc[0];
+                unsigned int j = qubit_loc[1];
+
+                int i_idx = static_cast<int>(std::distance(flattened.begin(), std::find(flattened.begin(), flattened.end(), i))) - 1;
+                int j_idx = static_cast<int>(std::distance(flattened.begin(), std::find(flattened.begin(), flattened.end(), j))) - 1;
+
+                unsigned int total_diff_i = 0;
+                unsigned int total_diff_j = 0;
+                if (i>j) {
+                    for (int r = 0; r <= i_idx; ++r) {
+                        total_diff_i += diff_active[r];
+                    }
+                    for (int r = 0; r <= j_idx; ++r) {
+                        total_diff_j += diff_active[r];
+                    }
+                } else {
+                    for (int r = 0; r <= j_idx; ++r) {
+                        total_diff_j += diff_active[r];
+                    }
+                    for (int r = 0; r <= i_idx; ++r) {
+                        total_diff_i += diff_active[r];
+                    }
+                }
+
+                if (i_idx >= 0) {
+                    i -= total_diff_i;
+                }
+                if (j_idx >= 0) {
+                    j -= total_diff_j;
+                }
+                qubit_locations_tups_red.push_back({i, j});
+            } else if (qubit_loc.size() == 1) { // 1-qubit gate
+                unsigned int i = qubit_loc[0];
+                int i_idx = static_cast<int>(std::distance(flattened.begin(), std::find(flattened.begin(), flattened.end(), i))) - 1;
+
+                if (i_idx >= 0) {
+                    unsigned int total_diff = 0;
+                    for (int r = 0; r <= i_idx; ++r) {
+                        total_diff += diff_active[r];
+                    }
+                    i -= total_diff;
+                }
+                qubit_locations_tups_red.push_back({i});
+            } else {
+                throw std::runtime_error("Larger than 2-qubit gates are not supported by blocked gates in qsimh.");
+            }
+        }
+    } else if (block_size_red > block_size_) {
+      throw std::runtime_error("The reduced (without inactive qubits) block size cannot be larger than the full block size.");
+    } else if (block_size_ == block_size_red) {//standard case
+      qubit_locations_tups_red = qubit_locations_tups;
+    }
+
+    std::cout << "qubits_tups_red\n";
+    for (auto el : qubit_locations_tups_red) {
+      for (auto el2 : el) {
+        std::cout << el2 << " ";
+      }
+      std::cout << "\n";
+    }
+
+    filled_mult_gate = genIdentity<fp_type>(block_size_red);
+    std::vector<unsigned int> qubits_tot;
+
+    for (unsigned int i = 0; i < gates_temp.size(); ++i) {  
+      GateCirq<fp_type> gate_temp = gates_temp[i];
+      std::vector<unsigned int> qubits = qubit_locations_tups_red[i];
+
+      const auto& mat = gate_temp.matrix; //extract the matrix from the gate
+      M M_filled = FillId(mat, qubits, block_size_red, shift);//fill the matrix according to block_size
+      MatrixMultiply(block_size_red, M_filled, filled_mult_gate); //multiply the gates, the latter is overwritten
+      qubits_tot.push_back(i);
+    }
+
+    return CreateGate<GateCirq<fp_type>, GateBlock>(time, flattened, std::forward<M>(filled_mult_gate), {}, std::forward<std::vector<unsigned int>>(flattened));
+  }
+
+  template <typename M = Matrix<fp_type>> 
+  //external filled_mult_gate necessary to be able to call the method in GetSchmidtDecomp
+  schmidt_decomp_type<fp_type> SchmidtDecomp(M filled_mult_gate_, unsigned int n_top, unsigned int n_bottom) {
+    schmidt_decomp_type<fp_type> res = PerformSVD(filled_mult_gate_, block_size_, n_top, n_bottom, true); //!set to false later for less overhead
+    return res;
+  }
+  
+};
+
 }  // namesapce Cirq
 
 template <typename fp_type>
 inline schmidt_decomp_type<fp_type> GetSchmidtDecomp(
-    Cirq::GateKind kind, const std::vector<fp_type>& params) {
+    Cirq::GateKind kind, const std::vector<fp_type>& params, Matrix<fp_type> m, std::vector<unsigned int> qubits, std::vector<unsigned int> flattened_qubits, unsigned int n_top, unsigned int n_bottom) {
+
+    //must be in a separate clause as an instance of the class must be called
+  if (kind == Cirq::kBlock) {
+    unsigned int block_size_red = flattened_qubits.size();
+    //unsigned int shift = *std::min_element(flattened_qubits.begin(), flattened_qubits.end());
+    Cirq::GateBlock<fp_type> gate_block(block_size_red);
+    schmidt_decomp_type<fp_type> res_red = gate_block.SchmidtDecomp(m, n_top, n_bottom);
+    return res_red;
+  }
+  
   switch (kind) {
   case Cirq::kI2:
     return Cirq::I2<fp_type>::SchmidtDecomp();

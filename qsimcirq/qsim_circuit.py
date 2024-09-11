@@ -19,6 +19,7 @@ import cirq
 import numpy as np
 
 from . import qsim
+from .block_gate import BlockGate
 
 
 # List of parameter names that appear in valid Cirq protos.
@@ -167,6 +168,9 @@ def _translate_MeasurementGate(gate: cirq.MeasurementGate):
     # needed to inherit SimulatesSamples in sims
     return qsim.kMeasurement
 
+def _translate_BlockGate(gate: BlockGate):
+    #needed for joint cutting
+    return qsim.kBlock
 
 TYPE_TRANSLATOR = {
     cirq.ControlledGate: _translate_ControlledGate,
@@ -192,6 +196,7 @@ TYPE_TRANSLATOR = {
     cirq.CSwapGate: _translate_CSwapGate,
     cirq.MatrixGate: _translate_MatrixGate,
     cirq.MeasurementGate: _translate_MeasurementGate,
+    BlockGate : _translate_BlockGate,
 }
 
 
@@ -315,6 +320,58 @@ def add_op_to_circuit(
             qsim.add_matrix_gate(time, qsim_qubits, m, circuit)
         else:
             qsim.add_matrix_gate_channel(time, qsim_qubits, m, circuit)
+    elif gate_kind == qsim.kBlock:
+        if isinstance(circuit, qsim.Circuit):
+            gates_temp = []
+            qubit_locations_tup = []
+            block_gate_instance = qsim_op.gate
+            for op in block_gate_instance.operations:
+                params = {}
+                op_gate = op.gate
+                gate_kind_temp = _cirq_gate_kind(op_gate)
+                for p, val in vars(op_gate).items():
+                    key = p.strip("_")
+                    if key not in GATE_PARAMS:
+                        continue
+                    if isinstance(val, (int, float, np.integer, np.floating)):
+                        params[key] = val
+                    else:
+                        raise ValueError("Parameters must be numeric.")
+                qubits_temp = op.qubits
+                qubits_temp = [l.x for l in qubits_temp]
+                print("gate_kind_temp", gate_kind_temp)
+                print("time", time)
+                print("qubits_temp", qubits_temp)
+                print("params", params)
+                gates_temp.append(qsim.create_gate(gate_kind_temp, time, qubits_temp, params))
+                print("gates_temp after create_gate appended", gates_temp)
+                qubit_locations_tup.append(qubits_temp)
+            #create blockgate instance in qsim
+            if qubit_locations_tup:
+                qubits_effective = set([item for sublist in qubit_locations_tup for item in sublist])
+                block_size = len(list(qubits_effective))
+                block_size_glob = max(qubits_effective) - min(qubits_effective) +1 #this is the block size including inactive qubits
+                print("block_size", block_size, "block_size_glob", block_size_glob)
+                #we need to flip the qubit_locations such that they will be applied in the correct order - and this depends on block_size
+                qubit_locations_new = []
+                for qubit_loc in qubit_locations_tup:
+                    qubit_loc_temp = [block_size_glob - i -1 for i in qubit_loc]
+                    if len(qubit_loc_temp)==2 and qubit_loc_temp[0] < qubit_loc_temp[1]:#need to reorder the tups of flipped gates
+                        qubit_loc_temp[0], qubit_loc_temp[1] = qubit_loc_temp[1], qubit_loc_temp[0]
+                    qubit_locations_new.append(qubit_loc_temp)
+                qubit_locations_tup = qubit_locations_new #overwrite
+            else:
+                raise ValueError("The qubit_locations_tup cannot be empty.")
+            joint_block = qsim.GateBlock(block_size_glob)
+            print("qubits_locations_tup", qubit_locations_tup)
+            obj = joint_block.Create(time, gates_temp, qubit_locations_tup)
+            print("joint gate", obj)
+            #push joint gate directly to circuit->gates
+            print("circuit gates before", circuit.gates)
+            qsim.add_gate_direct(obj, circuit)
+            print("circuit gates after", circuit.gates)
+        else:
+            raise NotImplementedError("Joint cutting is not implemented for noisy gates.")
     else:
         params = {}
         for p, val in vars(qsim_gate).items():
@@ -413,25 +470,47 @@ class QSimCircuit(cirq.Circuit):
         gate_count = 0
         moment_indices = []
         for moment in self:
-            ops_by_gate = [
-                cirq.decompose(
-                    op, fallback_decomposer=to_matrix, keep=_has_cirq_gate_kind
-                )
-                for op in moment
-            ]
-            moment_length = max((len(gate_ops) for gate_ops in ops_by_gate), default=0)
+            print(moment)
+        for moment in self:
+            # Check if there's only one operation in the moment and it's a BlockOperation
+            print("moment type",type(moment), "moment.operations", moment.operations)
+            print("moment.op type", type(moment.operations[0]))
+            print("moment gate", type(moment.operations[0].gate))
+            if isinstance(moment.operations[0].gate, BlockGate):
+                print("case block")
+                if len(moment.operations)>1:
+                    raise ValueError("A BlockGate must be alone in a moment, no other operations are allowed in the moment")
+                # Handle the BlockOperation directly
+                block_op = moment.operations[0]
+                # Here you would handle the BlockOperation specifically if needed.
+                # For example, you might add it directly to your qsim_circuit.
+                qsim_op = block_op  # This depends on how you handle BlockOperations
+                time = time_offset
+                add_op_to_circuit(qsim_op, time, qubit_to_index_dict, qsim_circuit)
+                moment_length = 1
+            else:
+                print("other case")
+                ops_by_gate = [
+                    cirq.decompose(
+                        op, fallback_decomposer=to_matrix, keep=_has_cirq_gate_kind
+                    )
+                    for op in moment
+                ]
+                moment_length = max((len(gate_ops) for gate_ops in ops_by_gate), default=0)
 
-            # Gates must be added in time order.
-            for gi in range(moment_length):
-                for gate_ops in ops_by_gate:
-                    if gi >= len(gate_ops):
-                        continue
-                    qsim_op = gate_ops[gi]
-                    time = time_offset + gi
-                    add_op_to_circuit(qsim_op, time, qubit_to_index_dict, qsim_circuit)
-                    gate_count += 1
+                # Gates must be added in time order.
+                for gi in range(moment_length):
+                    for gate_ops in ops_by_gate:
+                        if gi >= len(gate_ops):
+                            continue
+                        qsim_op = gate_ops[gi]
+                        time = time_offset + gi
+                        add_op_to_circuit(qsim_op, time, qubit_to_index_dict, qsim_circuit)
+                        gate_count += 1
             time_offset += moment_length
             moment_indices.append(gate_count)
+
+        print("qsim_circuit", qsim_circuit.gates)
 
         return qsim_circuit, moment_indices
 

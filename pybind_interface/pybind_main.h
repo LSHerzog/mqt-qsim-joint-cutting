@@ -29,8 +29,17 @@ namespace py = pybind11;
 #include "../lib/expect.h"
 #include "../lib/gates_cirq.h"
 #include "../lib/qtrajectory.h"
+#include "../lib/gates_qsim.h"
 
 // Methods for mutating noiseless circuits.
+qsim::Cirq::GateCirq<float> create_gate(const qsim::Cirq::GateKind gate_kind,
+                                  const unsigned time,
+                                  const std::vector<unsigned>& qubits,
+                                  const std::map<std::string, float>& params);
+
+void add_gate_direct(qsim::Cirq::GateCirq<float> gate,
+              qsim::Circuit<qsim::Cirq::GateCirq<float>>* circuit);
+
 void add_gate(const qsim::Cirq::GateKind gate_kind, const unsigned time,
               const std::vector<unsigned>& qubits,
               const std::map<std::string, float>& params,
@@ -294,6 +303,32 @@ std::vector<std::complex<float>> qsimh_simulate(const py::dict &options);
       /* Method for hybrid simulation */                                              \
       m.def("qsimh_simulate", &qsimh_simulate, "Call the qsimh simulator");           \
                                                                                       \
+      py::class_<GateCirq>(m, "GateCirq") \
+        .def(py::init<>())  \
+        .def_readwrite("kind", &GateCirq::kind) \
+        .def_readwrite("time", &GateCirq::time) \
+        .def_readwrite("qubits", &GateCirq::qubits) \
+        .def_readwrite("controlled_by", &GateCirq::controlled_by) \
+        .def_readwrite("cmask", &GateCirq::cmask) \
+        .def_readwrite("params", &GateCirq::params) \
+        .def_readwrite("unfusible", &GateCirq::unfusible) \
+        .def_readwrite("swapped", &GateCirq::swapped) \
+        .def_readwrite("flattened_qubits", &GateCirq::flattened_qubits); \
+            \
+      using GateBlock = qsim::Cirq::GateBlock<float>;    \
+      py::class_<GateBlock>(m, "GateBlock") \
+        .def(py::init<unsigned int>()) \
+        .def("Create", &GateBlock::Create<Matrix<float>>,  \
+             py::arg("time"), \
+             py::arg("gates_temp"), \
+             py::arg("qubit_locations_tups")) \
+        .def("SchmidtDecomp", &GateBlock::SchmidtDecomp<Matrix<float>>, \
+             py::arg("filled_mult_gate_"), \
+             py::arg("n_top"), \
+             py::arg("n_bottom")) \
+        .def_readwrite("filled_mult_gate", &GateBlock::filled_mult_gate) \
+        .def_readwrite("block_size_", &GateBlock::block_size_); \
+                                                                               \
       using GateKind = qsim::Cirq::GateKind;                                          \
       using Circuit = qsim::Circuit<GateCirq>;                                        \
       using NoisyCircuit = qsim::NoisyCircuit<GateCirq>;                              \
@@ -357,10 +392,13 @@ std::vector<std::complex<float>> qsimh_simulate(const py::dict &options);
         .value("kCSwapGate", GateKind::kCSwapGate)                                    \
         .value("kCCZ", GateKind::kCCZ)                                                \
         .value("kCCX", GateKind::kCCX)                                                \
+        .value("kBlock", GateKind::kBlock)                                            \
         .value("kMatrixGate", GateKind::kMatrixGate)                                  \
         .value("kMeasurement", GateKind::kMeasurement)                                \
         .export_values();                                                             \
                                                                                       \
+      m.def("add_gate_direct", &add_gate_direct, "adds a gate directly to a circuit");\
+      m.def("create_gate", &create_gate, "creates a single gate");                    \
       m.def("add_gate", &add_gate, "Adds a gate to the given circuit.");              \
       m.def("add_diagonal_gate", &add_diagonal_gate,                                  \
             "Adds a two- or three-qubit diagonal gate to the given circuit.");        \

@@ -1,3 +1,9 @@
+CXX = g++
+NVCC = nvcc
+HIPCC = hipcc
+CXXFLAGS = -O3 -fopenmp -march=native -DHAVE_CBLAS=1
+LDFLAGS = -lblas -llapack
+
 # The names of the shared libraries that result after compiling qsim for Pybind11
 QSIMLIB_BASIC = ../qsimcirq/qsim_basic`python3-config --extension-suffix`
 QSIMLIB_SSE = ../qsimcirq/qsim_sse`python3-config --extension-suffix`
@@ -9,10 +15,10 @@ QSIMLIB_HIP = ../qsimcirq/qsim_hip`python3-config --extension-suffix`
 QSIMLIB_DECIDE = ../qsimcirq/qsim_decide`python3-config --extension-suffix`
 
 # The flags for the compilation of the simd-specific Pybind11 interfaces
-PYBINDFLAGS_BASIC = -Wall -shared -std=c++17 -fPIC `python3 -m pybind11 --includes`
-PYBINDFLAGS_SSE = -msse4.1 -Wall -shared -std=c++17 -fPIC `python3 -m pybind11 --includes`
-PYBINDFLAGS_AVX2 = -mavx2 -mfma -Wall -shared -std=c++17 -fPIC `python3 -m pybind11 --includes`
-PYBINDFLAGS_AVX512 = -mavx512f -mbmi2 -Wall -shared -std=c++17 -fPIC `python3 -m pybind11 --includes`
+PYBINDFLAGS_BASIC = -Wall -shared -std=c++17 -fPIC `python3 -m pybind11 --includes`  $(LDFLAGS)
+PYBINDFLAGS_SSE = -msse4.1 -Wall -shared -std=c++17 -fPIC `python3 -m pybind11 --includes`  $(LDFLAGS)
+PYBINDFLAGS_AVX2 = -mavx2 -mfma -Wall -shared -std=c++17 -fPIC `python3 -m pybind11 --includes`  $(LDFLAGS)
+PYBINDFLAGS_AVX512 = -mavx512f -mbmi2 -Wall -shared -std=c++17 -fPIC `python3 -m pybind11 --includes` $(LDFLAGS)
 
 # The flags for the compilation of CUDA-specific Pybind11 interfaces
 PYBINDFLAGS_CUDA = -std=c++17 -x cu -Xcompiler "-Wall -shared -fPIC `python3 -m pybind11 --includes`"

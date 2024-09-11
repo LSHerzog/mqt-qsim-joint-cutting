@@ -110,9 +110,18 @@ Cirq::GateCirq<float> create_gate(const qsim::Cirq::GateKind gate_kind,
         time, qubits[0], qubits[1],
         params.at("exponent"), params.at("global_shift"));
     case Cirq::kCXPowGate:
-      return Cirq::CXPowGate<float>::Create(
-        time, qubits[0], qubits[1],
-        params.at("exponent"), params.at("global_shift"));
+      if (qubits[0]<qubits[1]){
+        return Cirq::CXPowGate<float>::Create(
+          time, qubits[0], qubits[1],
+          params.at("exponent"), params.at("global_shift"));
+      } else if (qubits[0]>qubits[1]) {
+        return Cirq::CXPowGate<float>::CreateReversed(
+          time, qubits[0], qubits[1],
+          params.at("exponent"), params.at("global_shift"));
+      } else {
+        throw std::invalid_argument("qubits[0]==qubits[1] is not allowed for CXPowGate gate.");
+      }
+
     case Cirq::krx:
       return Cirq::rx<float>::Create(time, qubits[0], params.at("phi"));
     case Cirq::kry:
@@ -126,7 +135,15 @@ Cirq::GateCirq<float> create_gate(const qsim::Cirq::GateKind gate_kind,
     case Cirq::kCZ:
       return Cirq::CZ<float>::Create(time, qubits[0], qubits[1]);
     case Cirq::kCX:
-      return Cirq::CX<float>::Create(time, qubits[0], qubits[1]);
+      if (qubits[0]<qubits[1]){
+        std::cout << "standard cnot\n"; 
+        return Cirq::CX<float>::Create(time, qubits[0], qubits[1]);
+      } else if (qubits[0]>qubits[1]) {
+        std::cout << "upside down cnot\n";
+        return Cirq::CX<float>::CreateReversed(time, qubits[0], qubits[1]);
+      } else {
+        throw std::invalid_argument("qubits[0]==qubits[1] is not allowed for CX gate.");
+      }
     case Cirq::kT:
       return Cirq::T<float>::Create(time, qubits[0]);
     case Cirq::kX:
@@ -178,12 +195,25 @@ Cirq::GateCirq<float> create_gate(const qsim::Cirq::GateKind gate_kind,
     case Cirq::kISWAP:
       return Cirq::ISWAP<float>::Create(time, qubits[0], qubits[1]);
     case Cirq::kPhasedISwapPowGate:
-      return Cirq::PhasedISwapPowGate<float>::Create(
-        time, qubits[0], qubits[1],
-        params.at("phase_exponent"), params.at("exponent"));
+      if (qubits[0]<qubits[1]){
+        return Cirq::PhasedISwapPowGate<float>::Create(
+          time, qubits[0], qubits[1],
+          params.at("phase_exponent"), params.at("exponent"));
+      } else if (qubits[0]>qubits[1]) {
+        return Cirq::PhasedISwapPowGate<float>::CreateReversed(
+          time, qubits[0], qubits[1],
+          params.at("phase_exponent"), params.at("exponent"));        
+      } else {
+        throw std::invalid_argument("qubits[0]==qubits[1] is not allowed for PhasedISwapPowGate.");
+      }
     case Cirq::kgivens:
-      return Cirq::givens<float>::Create(
-        time, qubits[0], qubits[1], params.at("phi"));
+      if (qubits[0]<qubits[1]){
+        return Cirq::givens<float>::Create(
+          time, qubits[0], qubits[1], params.at("phi"));
+      } else if (qubits[0]>qubits[1]) {
+        return Cirq::givens<float>::CreateReversed(
+          time, qubits[0], qubits[1], params.at("phi"));
+      }
     case Cirq::kFSimGate:
       return Cirq::FSimGate<float>::Create(
         time, qubits[0], qubits[1], params.at("theta"), params.at("phi"));
@@ -218,8 +248,13 @@ Cirq::GateCirq<float> create_diagonal_gate(const unsigned time,
                                            const std::vector<float>& angles) {
   switch (qubits.size()) {
   case 2:
-    return Cirq::TwoQubitDiagonalGate<float>::Create(
-      time, qubits[0], qubits[1], angles);
+    if (qubits[0]<qubits[1]){
+      return Cirq::TwoQubitDiagonalGate<float>::Create(
+        time, qubits[0], qubits[1], angles);
+    } else if (qubits[0]>qubits[1]) {
+      return Cirq::TwoQubitDiagonalGate<float>::CreateReversed(
+        time, qubits[0], qubits[1], angles);
+    }
   case 3:
     return Cirq::ThreeQubitDiagonalGate<float>::Create(
       time, qubits[0], qubits[1], qubits[2], angles);
@@ -249,6 +284,11 @@ Cirq::GateCirq<float> create_matrix_gate(const unsigned time,
     throw std::invalid_argument(
         "Only up to 6-qubit matrix gates are supported.");
   }
+}
+
+void add_gate_direct(qsim::Cirq::GateCirq<float> gate,
+              qsim::Circuit<qsim::Cirq::GateCirq<float>>* circuit) {
+  circuit->gates.push_back(gate);
 }
 
 void add_gate(const qsim::Cirq::GateKind gate_kind, const unsigned time,

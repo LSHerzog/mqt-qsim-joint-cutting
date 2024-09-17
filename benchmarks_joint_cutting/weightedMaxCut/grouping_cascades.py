@@ -6,6 +6,10 @@ import itertools
 import copy
 from enum import Enum
 import random
+import sys
+sys.path.append("../../")
+import cirq
+import qsimcirq
 
 #grouping for QAOA (grouping_cascades) and for VQE state preparation (grouping_without_ordering)
 
@@ -221,6 +225,91 @@ class grouping_cascades():
                 for el in temp_lst_out:
                     edges_cascade_lim["remainder"].append(el)
         self.edges_cascade_lim = edges_cascade_lim       
+
+    def create_qaoa_cirq(self, angles:List[float], cascade:AllowedValues, weights:List[float]=[]):
+        """circuits for cirq, same logic as `create_qaoa_qsim`"""
+
+        if len(weights)!=0:
+            assert len(self.edges) == len(weights), "Your weights for weighted MaxCut do not fit your Graph."
+            bool_weights = True
+        else:
+            bool_weights = False
+
+        if (not self.dct_weights) and bool_weights==True and cascade!=1:
+            raise ValueError("You need to run `cascade=1`, i.e. no block first before you run any version with blocks. This is because the weight assignment must be determined in the first run.")
+        elif (not self.dct_weights) and bool_weights==True and cascade==1:
+            self.dct_weights={} #assign dict to this var
+
+        assert len(angles)%2==0, "The number of elements in `angles` must be even"
+        layers = len(angles)//2
+        assert layers==1, "for now, only single layer QAOA available."
+
+        layer=0
+        theta = angles[layer]
+        gamma = angles[layer+layers]
+
+        #create linequbits
+        linequbits = [cirq.LineQubit(i) for i in range(self.q)]
+
+        #initialize list of operations
+        operations = []
+
+        #add hadamards
+        for i in range(self.q):
+            operations.append(cirq.H(linequbits[i]))
+
+        if cascade == 0 or cascade == 2:
+            if cascade == 0:
+                casc_dict = self.edges_cascades
+            elif cascade == 2:
+                casc_dict = self.edges_cascade_lim 
+            
+
+            for key, casc_list in casc_dict.items():
+                ops_block_temp = []
+                if key != "remainder" and len(casc_list)!=1: #block
+                    for l, edge in enumerate(casc_list):
+                        if bool_weights == False:
+                            op_temp = cirq.ZZPowGate(exponent=theta/np.pi, global_shift=-0.5).on(linequbits[edge[0]], linequbits[edge[1]])
+                            ops_block_temp.append(op_temp)
+                        else:
+                            weight_current = self.dct_weights[f"{edge[0]} {edge[1]}"]
+                            op_temp = cirq.ZZPowGate(exponent=theta*weight_current/np.pi, global_shift=-0.5).on(linequbits[edge[0]], linequbits[edge[1]])
+                            ops_block_temp.append(op_temp)
+                    #find effective qubits on which the block acts
+                    qubits_block = set([element for tup in casc_list for element in tup])
+                    qubits_block = sorted(qubits_block)
+                    qubits_block = [linequbits[i] for i in qubits_block]
+                    operations.append(qsimcirq.BlockGate(ops_block_temp).on(*qubits_block))
+                elif len(casc_list)==1 or key=="remainder": # for "remainder" and casc_lists with one entry only
+                    for l, edge in enumerate(casc_list):
+                        if bool_weights == False:
+                            op_temp = cirq.ZZPowGate(exponent=theta/np.pi, global_shift=-0.5).on(linequbits[edge[0]], linequbits[edge[1]])
+                        else:
+                            weight_current = self.dct_weights[f"{edge[0]} {edge[1]}"]
+                            op_temp = cirq.ZZPowGate(exponent=theta*weight_current/np.pi, global_shift=-0.5).on(linequbits[edge[0]], linequbits[edge[1]])
+                            ops_block_temp.append(op_temp)
+                        operations.append(op_temp)
+                else:
+                    print("key", key)
+                    raise ValueError("There should be no blocks with a single gate inside.")
+            
+        elif cascade == 1: #no cascades
+            if bool_weights == False:
+                for edge in self.edges:
+                    operations.append(cirq.ZZPowGate(exponent=theta/np.pi, global_shift=-0.5).on(linequbits[edge[0]], linequbits[edge[1]]))
+            else:
+                for edge, weight in zip(self.edges, weights):
+                    operations.append(cirq.ZZPowGate(exponent=theta*weight/np.pi, global_shift=-0.5).on(linequbits[edge[0]], linequbits[edge[1]]))
+                    self.dct_weights.update({f"{edge[0]} {edge[1]}":weight})
+        else:
+            raise ValueError("Unknown `cascade` value.")
+        
+        #add mixer layer
+        for i in range(self.q):
+            operations.append(cirq.rx(rads = gamma).on(linequbits[i]))
+
+        return cirq.Circuit(*operations)
 
 
     def create_qaoa_qsim(self, angles:List[float], cascade:AllowedValues, path:str, weights:List[float]=[]):

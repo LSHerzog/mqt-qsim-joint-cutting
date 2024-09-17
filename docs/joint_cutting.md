@@ -1,6 +1,6 @@
 # Joint Cutting for Hybrid Schrödinger Feynman Simulation (`qsimh`)
 
-Everything one needs to know about using the qsimh package with joint cutting is described in this file.
+Everything one needs to know about using the qsimh package with joint cutting is described in this file. Note that our benchmarks were done with `qsimh/qsim` used via the command line. However, one can also use the cirq interface for doing computations.
 
 ## Additional Dependencies
 
@@ -88,8 +88,6 @@ However, it would be suitable to summarize the RZZ gates into a block. The parsi
 
 It is important to know that one cannot have too many qubits within a partition of a block. A hard limit is set such that maximally 6 qubits can be in a partition, i.e., a block can contain maximally 12 qubits in principle. However, in practice, it turned out that 5 qubits per partition of a block, i.e. maximally 10 qubits in a block is more stable. Thus, do not go beyond this value as otherwise your amplitudes might come out incorrect.
 
-So far, the `cirq` Python Bindings were not adapted yet. Thus, joint cutting can only be performed on the C++ Level.
-
 ## Timestamps 
 
 In order to check the performance of qsimh with and without joint cutting, additional timestamps were added. The most important time stamps can be read out using ``/benchmarks_join_cutting/readout.py`. This uses the output files from the qsim(h) computation of multiple runs and yields an output like this
@@ -146,10 +144,10 @@ and for qsimh:
 
 A Jupyter Notebook demonstrating the basic usage of qsimh with joint cutting can be found in `benchmarks_joint_cutting/toy_examples`.
 
+### cirq interface
+
+The joint cutting can also be used with the `cirq` interface. To see how, refer to the example notebook `/benchmarks_joint_cutting/toy_examples/toy_examples_cirq.ipynb`
+
 ### Benchmarks
 
-TODO: Include Benchmarks for weighted Max Cut (+ helper functions) as well as random Boixo circuits.
-
-## Summary of Adaptions in `qsimh`
-
-todo
+Benchmarks and the corresponding helper functions can be found in `/benchmarks_joint_cutting`. The QAOA benchmarks can be found in the folder `/benchmarks_joint_cutting/weightedMaxCut`, in particular the notebook `./benchmarks_weightedMaxCut.ipynb` displays the results from the paper. Furthermore we checked random circuits in the folder `./boixo_supremacy`.

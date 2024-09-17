@@ -6,6 +6,7 @@ from typing import List, Tuple
 import sys
 sys.path.append("..")
 import grouping_cascades
+import cirq
 
 class WeightedMaxCut:
     """
@@ -155,3 +156,16 @@ class WeightedMaxCut:
             self.generate_weights()
         self.create_qsim_files()
 
+    def run_all_cirq(self, cascades = List[int]) -> List[cirq.Circuit]:
+        self.perform_grouping_operations()
+        if self.verbose:
+            self.print_grouping_results()
+            self.count_and_print_cuts()
+            self.draw_graph(save_plot=self.save_plot)
+        if len(self.weights)==0:
+            self.generate_weights()
+        circuit_list = []
+        for cascade in cascades:
+            circ = self.grouping.create_qaoa_cirq(self.angles, cascade, self.weights)
+            circuit_list.append(circ)
+        return circuit_list

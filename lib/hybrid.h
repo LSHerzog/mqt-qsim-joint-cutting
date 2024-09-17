@@ -184,12 +184,6 @@ struct HybridSimulator final {
             IO::errorf("More than two groups for the cut are not yet implemented");
           }  
         }
-        //determine group assignment of the qubits of the 4-block //!redundant code
-        std::cout << "hybrid.h: gate.qubits\n";
-        for (int q: gate.qubits) {
-          std::cout << q << " ";
-        }
-        std::cout << "\n";
         for (int q : gate.qubits) {
             if (find(group0_idx.begin(), group0_idx.end(), q) != group0_idx.end()) {
                 qubitGroups.push_back(0);
@@ -200,7 +194,6 @@ struct HybridSimulator final {
             }
         }
       }
-      
       switch (gate.qubits.size()) {
       case 1:  // Single qubit gates.
         switch (parts[gate.qubits[0]]) {
@@ -218,7 +211,7 @@ struct HybridSimulator final {
         break;
       case 2:  // Two qubit gates.
         {
-          if (gate.kind == 24 || gate.kind == 47) { //only add values if block gate (24 for qsim gates, 47 for cirq gates)
+          if (gate.kind == 24) { //only add values if block gate (24 for qsim gates, 47 for cirq gates)
             n_top_lst.emplace_back(1); //no other choice for 2 qubit blocks
             n_bottom_lst.emplace_back(1);
           };
@@ -279,7 +272,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(2);
             };
@@ -288,7 +281,7 @@ struct HybridSimulator final {
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(2);
             };
@@ -297,7 +290,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(1);
             };
@@ -306,7 +299,7 @@ struct HybridSimulator final {
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(1);
             };
@@ -338,7 +331,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(1);
             };
@@ -347,7 +340,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(2);
             };
@@ -356,7 +349,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(3);
             };
@@ -365,7 +358,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(3);
             };
@@ -374,7 +367,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(2);
             };
@@ -383,7 +376,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(1);
             };
@@ -402,7 +395,6 @@ struct HybridSimulator final {
 
           if (qubitGroups[0] == 0 && qubitGroups[1] == 0 && qubitGroups[2] == 0 && qubitGroups[3] == 0 && qubitGroups[4] == 0){
             //all qubits in group 0
-            //std::cout << "all qubits in group 0\n";
             hd.gates0.emplace_back(GateHybrid{gate.kind, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]], hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]]}, {} ,0, gate.params, gate.matrix, false, gate.swapped, nullptr, 0});
           } else if (qubitGroups[0] == 1 && qubitGroups[1] == 1 && qubitGroups[2] == 1 && qubitGroups[3] == 1 && qubitGroups[4] == 1) {
             //all qubits in group 1
@@ -412,7 +404,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(4);
               n_bottom_lst.emplace_back(1);
             };
@@ -421,7 +413,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(2);
             };
@@ -430,7 +422,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(3);
             };
@@ -439,7 +431,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(4);
             };
@@ -448,7 +440,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(4);
               n_bottom_lst.emplace_back(1);
             };
@@ -457,7 +449,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(2);
             };
@@ -466,7 +458,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(3);
             };
@@ -475,7 +467,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(4);
             };
@@ -503,7 +495,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(5);
               n_bottom_lst.emplace_back(1);
             };
@@ -512,7 +504,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(4);
               n_bottom_lst.emplace_back(2);
             };
@@ -521,7 +513,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(3);
             };
@@ -530,7 +522,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(4);
             };
@@ -539,7 +531,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(5);
             };
@@ -548,7 +540,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]], hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(5);
             };
@@ -557,7 +549,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(4);
             };
@@ -566,7 +558,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(3);
             };
@@ -575,7 +567,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(4);
               n_bottom_lst.emplace_back(2);
             };
@@ -584,7 +576,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(5);
               n_bottom_lst.emplace_back(1);
             };
@@ -610,7 +602,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(6);
               n_bottom_lst.emplace_back(1);
             };
@@ -619,7 +611,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(5);
               n_bottom_lst.emplace_back(2);
             };
@@ -628,7 +620,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(4);
               n_bottom_lst.emplace_back(3);
             };
@@ -637,7 +629,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(4);
             };
@@ -646,7 +638,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(5);
             };
@@ -655,7 +647,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(6);
             };
@@ -664,7 +656,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(6);
             };
@@ -673,7 +665,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(5);
             };
@@ -682,7 +674,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(4);
             };
@@ -691,7 +683,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(4);
               n_bottom_lst.emplace_back(3);
             };
@@ -700,7 +692,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(5);
               n_bottom_lst.emplace_back(2);
             };
@@ -709,7 +701,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]], hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(6);
               n_bottom_lst.emplace_back(1);
             };
@@ -735,7 +727,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(7);
               n_bottom_lst.emplace_back(1);
             };
@@ -744,7 +736,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(6);
               n_bottom_lst.emplace_back(2);
             };
@@ -753,7 +745,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(5);
               n_bottom_lst.emplace_back(3);
             };
@@ -762,7 +754,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(4);
               n_bottom_lst.emplace_back(4);
             };
@@ -771,7 +763,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(5);
             };
@@ -780,7 +772,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(6);
             };
@@ -789,7 +781,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(7);
             };
@@ -798,7 +790,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(7);
             };
@@ -807,7 +799,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(6);
             };
@@ -816,7 +808,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(5);
             };
@@ -825,7 +817,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(4);
               n_bottom_lst.emplace_back(4);
             };
@@ -834,7 +826,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(5);
               n_bottom_lst.emplace_back(3);
             };
@@ -843,7 +835,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(6);
               n_bottom_lst.emplace_back(2);
             };
@@ -852,7 +844,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]], hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(7);
               n_bottom_lst.emplace_back(1);
             };
@@ -878,7 +870,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(8);
               n_bottom_lst.emplace_back(1);
             };
@@ -887,7 +879,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(7);
               n_bottom_lst.emplace_back(2);
             };
@@ -896,7 +888,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(6);
               n_bottom_lst.emplace_back(3);
             };
@@ -905,7 +897,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(5);
               n_bottom_lst.emplace_back(4);
             };
@@ -914,7 +906,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(4);
               n_bottom_lst.emplace_back(5);
             };
@@ -923,7 +915,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(6);
             };
@@ -932,7 +924,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(7);
             };
@@ -941,7 +933,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(8);
             };
@@ -950,7 +942,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(8);
             };
@@ -959,7 +951,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(7);
             };
@@ -968,7 +960,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(6);
             };
@@ -977,7 +969,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(4);
               n_bottom_lst.emplace_back(5);
             };
@@ -986,7 +978,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(5);
               n_bottom_lst.emplace_back(4);
             };
@@ -995,7 +987,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(6);
               n_bottom_lst.emplace_back(3);
             };
@@ -1004,7 +996,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(7);
               n_bottom_lst.emplace_back(2);
             };
@@ -1013,7 +1005,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(8);
               n_bottom_lst.emplace_back(1);
             };
@@ -1039,7 +1031,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]], hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(9);
               n_bottom_lst.emplace_back(1);
             };
@@ -1048,7 +1040,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]], hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(8);
               n_bottom_lst.emplace_back(2);
             };
@@ -1057,7 +1049,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]], hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(7);
               n_bottom_lst.emplace_back(3);
             };
@@ -1066,7 +1058,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]], hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(6);
               n_bottom_lst.emplace_back(4);
             };
@@ -1075,7 +1067,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(5);
               n_bottom_lst.emplace_back(5);
             };
@@ -1084,7 +1076,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(4);
               n_bottom_lst.emplace_back(6);
             };
@@ -1093,7 +1085,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(7);
             };
@@ -1102,7 +1094,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(8);
             };
@@ -1111,7 +1103,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(9);
             };
@@ -1120,7 +1112,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(1);
               n_bottom_lst.emplace_back(9);
             };
@@ -1129,7 +1121,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(2);
               n_bottom_lst.emplace_back(8);
             };
@@ -1138,7 +1130,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(3);
               n_bottom_lst.emplace_back(7);
             };
@@ -1147,7 +1139,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(4);
               n_bottom_lst.emplace_back(6);
             };
@@ -1156,7 +1148,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(5);
               n_bottom_lst.emplace_back(5);
             };
@@ -1165,7 +1157,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(6);
               n_bottom_lst.emplace_back(4);
             };
@@ -1174,7 +1166,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(7);
               n_bottom_lst.emplace_back(3);
             };
@@ -1183,7 +1175,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[8]],hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(8);
               n_bottom_lst.emplace_back(2);
             };
@@ -1192,7 +1184,7 @@ struct HybridSimulator final {
             hd.gates0.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[9]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             hd.gates1.emplace_back(GateHybrid{GateKind::kDecomp, gate.time, {hd.qubit_map[gate.qubits[0]],hd.qubit_map[gate.qubits[1]],hd.qubit_map[gate.qubits[2]],hd.qubit_map[gate.qubits[3]],hd.qubit_map[gate.qubits[4]],hd.qubit_map[gate.qubits[5]],hd.qubit_map[gate.qubits[6]],hd.qubit_map[gate.qubits[7]],hd.qubit_map[gate.qubits[8]]}, {}, 0, gate.params, {}, true, gate.swapped, &gate, hd.num_gatexs});
             ++hd.num_gatexs;
-            if (gate.kind == 24 || gate.kind == 47) {
+            if (gate.kind == 24 ) {
               n_top_lst.emplace_back(9);
               n_bottom_lst.emplace_back(1);
             };
@@ -1214,7 +1206,7 @@ struct HybridSimulator final {
     std::sort(hd.gates0.begin(), hd.gates0.end(), compare);
     std::sort(hd.gates1.begin(), hd.gates1.end(), compare);
 
-    hd.gatexs.reserve(hd.num_gatexs);
+    hd.gatexs.reserve(hd.num_gatexs); 
 
     // Get Schmidt matrices.
     unsigned int counter_ntop_nbottom = 0;
@@ -1225,24 +1217,14 @@ struct HybridSimulator final {
         if (n_top_lst.size()!=0){
           n_top_temp = n_top_lst[counter_ntop_nbottom];
           n_bottom_temp = n_bottom_lst[counter_ntop_nbottom];
+          if (counter_ntop_nbottom >= n_top_lst.size()+1) {
+            throw std::runtime_error("Unexpected Behaviour will arise if your n_top_lst / n_bottom_lst have fewer elements than counter_ntop_nbottom");
+          } 
         }
-        for (auto& el : gate0.parent->matrix) {
-          std::cout << el;
-        }
-        std::cout << "\n";
         double t0_sch = GetTime();
         auto d = GetSchmidtDecomp(gate0.parent->kind, gate0.parent->params, gate0.parent->matrix, gate0.parent->qubits, gate0.parent->flattened_qubits, n_top_temp, n_bottom_temp);
         double t1_sch = GetTime();
-        for (auto& inner_vec : d) {
-            for (auto& val : inner_vec) {
-                for (auto& val1 : val) {
-                  std::cout << val1 << " ";
-                }
-                std::cout << "---";
-            }
-            std::cout << '\n';  // New line after each inner vector
-        }
-        std::cout << "Time for SchmidtDecomposition: " << t1_sch-t0_sch << std::endl;
+
         if (gate0.parent->kind == kBlock){ //counter should increase only for kBlock, otherwise mixed circuits with kBlock and other cut gates not possible
           counter_ntop_nbottom += 1;
         }
@@ -1253,7 +1235,7 @@ struct HybridSimulator final {
           return false;
         }
 
-        //!adapt here for multiqubit gates
+        //adapt here for multiqubit gates
         unsigned schmidt_bits = SchmidtBits(d.size());
         if (schmidt_bits > 10) {
           std::cout << d.size() << d.size() << std::endl;

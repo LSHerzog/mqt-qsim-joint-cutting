@@ -53,6 +53,7 @@ enum GateKind {
   kPhasedXZGate,
   kXXPowGate,
   kYYPowGate,
+  kBlock, //block gate must be at index 24 such that it is the same index as in gats_qsim.h
   kZZPowGate,
   kXX,
   kYY,
@@ -76,7 +77,6 @@ enum GateKind {
   kMatrixGate2,  // Two-qubit matrix gate.
   kMatrixGate,   // Multi-qubit matrix gate.
   kGlobalPhaseGate,
-  kBlock, //block gate
   kGateRZZ, //rzz
   kDecomp = gate::kDecomp,
   kMeasurement = gate::kMeasurement,
@@ -1695,12 +1695,6 @@ struct GateBlock {
     std::sort(flattened.begin(), flattened.end());
     flattened.erase(std::unique(flattened.begin(), flattened.end()), flattened.end());
 
-    std::cout << "flattened\n";
-    for (auto el : flattened) {
-      std::cout << el << " ";
-    }
-    std::cout<< "\n";
-
     //overwrite flattened for input in CreateGate, such that all qubits are included even if no gate acts on some qubit(s)
     std::vector<unsigned int> flattened_full;
     unsigned int lowest_qubit = flattened.front();
@@ -1711,12 +1705,6 @@ struct GateBlock {
 
     //case distinction to create `reduced` blocks if some qubits are inactive. this way some identiteis are only added AFTER the SVD to avoid doing SVDs of absurdely large matrices (e.g. CNOT(0,7) CNOT(0,8))
     std::sort(flattened_full.begin(), flattened_full.end());
-
-    std::cout << "flattened_full\n";
-    for (auto el : flattened_full) {
-      std::cout << el << " ";
-    }
-    std::cout << "\n";
 
     std::vector<unsigned int> inactive_qubits;
     std::set_difference(flattened_full.begin(), flattened_full.end(), flattened.begin(), flattened.end(), std::back_inserter(inactive_qubits));
@@ -1784,14 +1772,6 @@ struct GateBlock {
       throw std::runtime_error("The reduced (without inactive qubits) block size cannot be larger than the full block size.");
     } else if (block_size_ == block_size_red) {//standard case
       qubit_locations_tups_red = qubit_locations_tups;
-    }
-
-    std::cout << "qubits_tups_red\n";
-    for (auto el : qubit_locations_tups_red) {
-      for (auto el2 : el) {
-        std::cout << el2 << " ";
-      }
-      std::cout << "\n";
     }
 
     filled_mult_gate = genIdentity<fp_type>(block_size_red);

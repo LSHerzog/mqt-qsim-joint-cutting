@@ -136,10 +136,8 @@ Cirq::GateCirq<float> create_gate(const qsim::Cirq::GateKind gate_kind,
       return Cirq::CZ<float>::Create(time, qubits[0], qubits[1]);
     case Cirq::kCX:
       if (qubits[0]<qubits[1]){
-        std::cout << "standard cnot\n"; 
         return Cirq::CX<float>::Create(time, qubits[0], qubits[1]);
       } else if (qubits[0]>qubits[1]) {
-        std::cout << "upside down cnot\n";
         return Cirq::CX<float>::CreateReversed(time, qubits[0], qubits[1]);
       } else {
         throw std::invalid_argument("qubits[0]==qubits[1] is not allowed for CX gate.");

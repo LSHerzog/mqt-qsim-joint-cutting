@@ -393,6 +393,11 @@ cc_library(
 )
 
 cc_library(
+    name = "joint_cutting_utils",
+    hdrs = ["joint_cutting_utils.h"],
+)
+
+cc_library(
     name = "gate_appl",
     hdrs = ["gate_appl.h"],
     deps = [
@@ -408,13 +413,16 @@ cc_library(
     deps = [
         ":gate",
         ":matrix",
+        ":joint_cutting_utils",
     ],
 )
 
 cc_library(
     name = "gates_qsim",
     hdrs = ["gates_qsim.h"],
-    deps = [":gate"],
+    deps = [":gate",
+            ":joint_cutting_utils",
+    ],
 )
 
 ### Circuit libraries ###

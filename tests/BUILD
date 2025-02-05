@@ -44,7 +44,7 @@ cc_test(
     ],
     copts = select({
         ":windows": windows_copts,
-        "//conditions:default": [],
+        "//conditions:default": ["-I../lib"],
     }),
 )
 
@@ -64,7 +64,7 @@ cc_test(
     ],
     copts = select({
         ":windows": windows_copts,
-        "//conditions:default": [],
+        "//conditions:default": ["-I../lib"],
     }),
 )
 

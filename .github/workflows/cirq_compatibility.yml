@@ -1,12 +1,14 @@
 name: Cirq Compatibility
 
 on:
-  schedule:
-    - cron: "0 0 * * *"
+  push:
+    branches:
+      - joint-cutting  # Trigger on push to joint-cutting
+  workflow_dispatch:  
 
 jobs:
   consistency:
-    name: Nightly Compatibility
+    name: Cirq Compatibility
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -14,11 +16,36 @@ jobs:
         with:
           python-version: '3.10'
           architecture: 'x64'
+
+      - name: Install xtensor and xtensor-blas
+        run: |
+          sudo apt-get update && sudo apt-get install -y cmake libblas-dev liblapack-dev
+
+          git clone https://github.com/xtensor-stack/xtensor.git
+          cd xtensor
+          mkdir build && cd build
+          cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local
+          sudo make install
+          cd ../..
+
+          git clone https://github.com/xtensor-stack/xtensor-blas.git
+          cd xtensor-blas
+          mkdir build && cd build
+          cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local
+          sudo make install
+
       - name: Install Cirq nightly
         run: pip3 install --upgrade cirq~=1.0.dev
+      
       - name: Install qsim requirements
         run: pip3 install -r requirements.txt
+      
       - name: Install test requirements
         run: pip3 install -r dev-requirements.txt
+      
       - name: Run python tests
+        env:
+          CXXFLAGS: "-I/usr/local/include"
+          LDFLAGS: "-L/usr/local/lib"
+          LD_LIBRARY_PATH: "/usr/local/lib:$LD_LIBRARY_PATH"
         run: make run-py-tests

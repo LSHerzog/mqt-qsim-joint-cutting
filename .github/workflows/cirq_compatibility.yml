@@ -17,24 +17,30 @@ jobs:
           python-version: '3.10'
           architecture: 'x64'
 
-      - name: Install xtensor and xtensor-blas
+      - name: Install dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y cmake libblas-dev liblapack-dev
-
+          sudo apt-get update
+          sudo apt-get install -y cmake libblas-dev liblapack-dev
+      - name: Install xtl (dependency for xtensor)
+        run: |
+          git clone https://github.com/xtensor-stack/xtl.git
+          cd xtl
+          cmake . -DCMAKE_INSTALL_PREFIX=/usr/local
+          sudo make install
+      - name: Install xtensor
+        run: |
           git clone https://github.com/xtensor-stack/xtensor.git
           cd xtensor
-          mkdir build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local
+          cmake . -DCMAKE_INSTALL_PREFIX=/usr/local
           sudo make install
-          cd ../..
-
+      - name: Install xtensor-blas
+        run: |
           git clone https://github.com/xtensor-stack/xtensor-blas.git
           cd xtensor-blas
-          mkdir build && cd build
-          cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local
+          cmake . -DCMAKE_INSTALL_PREFIX=/usr/local
           sudo make install
 
-      - name: Install Cirq nightly
+      - name: Install Cirq 
         run: pip3 install --upgrade cirq~=1.0.dev
       
       - name: Install qsim requirements

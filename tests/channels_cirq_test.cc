@@ -26,7 +26,6 @@
 #include "../lib/io.h"
 #include "../lib/qtrajectory.h"
 #include "../lib/simmux.h"
-#include "../lib/joint_cutting_utils.h"
 
 namespace qsim {
 

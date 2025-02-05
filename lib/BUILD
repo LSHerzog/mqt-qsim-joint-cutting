@@ -59,6 +59,7 @@ cc_library(
         "util.h",
         "util_cpu.h",
         "vectorspace.h",
+        "joint_cutting_utils.h",
     ],
 )
 
@@ -138,6 +139,7 @@ cuda_library(
         "util_cuda.h",
         "vectorspace.h",
         "vectorspace_cuda.h",
+        "joint_cutting_utils.h",
     ],
     deps = [
         ":cuda",
@@ -206,6 +208,7 @@ cuda_library(
         "util_custatevec.h",
         "vectorspace.h",
         "vectorspace_cuda.h",
+        "joint_cutting_utils.h",
     ],
     copts = ["-D__CUSTATEVEC__"],
     deps = [
@@ -259,6 +262,7 @@ cc_library(
         "util.h",
         "util_cpu.h",
         "vectorspace.h",
+        "joint_cutting_utils.h",
     ],
 )
 
@@ -298,6 +302,7 @@ cc_library(
         "util.h",
         "util_cpu.h",
         "vectorspace.h",
+        "joint_cutting_utils.h",
     ],
 )
 

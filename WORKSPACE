@@ -68,3 +68,50 @@ cc_library(
 load("//third_party/cuquantum:cuquantum_configure.bzl", "cuquantum_configure")
 
 cuquantum_configure(name = "local_config_cuquantum")
+
+# External dependency: xtl (dependency for xtensor)
+http_archive(
+    name = "xtl",
+    urls = ["https://github.com/xtensor-stack/xtl/archive/refs/heads/master.tar.gz"],
+    strip_prefix = "xtl-master",
+    build_file_content = """
+cc_library(
+    name = "xtl",
+    hdrs = glob(["xtl/**/*.hpp"]),
+    includes = ["xtl"],
+    visibility = ["//visibility:public"],
+)
+    """,
+)
+
+# External dependency: xtensor
+http_archive(
+    name = "xtensor",
+    urls = ["https://github.com/xtensor-stack/xtensor/archive/refs/heads/master.tar.gz"],
+    strip_prefix = "xtensor-master",
+    build_file_content = """
+cc_library(
+    name = "xtensor",
+    hdrs = glob(["xtensor/**/*.hpp"]),
+    includes = ["xtensor"],
+    deps = [":xtl"],
+    visibility = ["//visibility:public"],
+)
+    """,
+)
+
+# External dependency: xtensor-blas
+http_archive(
+    name = "xtensor-blas",
+    urls = ["https://github.com/xtensor-stack/xtensor-blas/archive/refs/heads/master.tar.gz"],
+    strip_prefix = "xtensor-blas-master",
+    build_file_content = """
+cc_library(
+    name = "xtensor-blas",
+    hdrs = glob(["xtensor-blas/**/*.hpp"]),
+    includes = ["xtensor-blas"],
+    deps = [":xtensor"],
+    visibility = ["//visibility:public"],
+)
+    """,
+)
